@@ -1,0 +1,158 @@
+/* ═══════════════════════ LIFE//OS — design tokens ═══════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #05060a;
+  --bg-raise: #0a0c13;
+  --panel: rgba(12, 14, 22, 0.78);
+  --panel-solid: #0c0e16;
+  --line: rgba(170, 185, 225, 0.1);
+  --line-mid: rgba(170, 185, 225, 0.18);
+  --line-strong: rgba(170, 185, 225, 0.32);
+
+  --text: #ece8de;
+  --text-dim: #9095a6;
+  --text-faint: #5a5f70;
+
+  /* Reward. Everything you earn is gold. */
+  --gold: #ffb347;
+  --gold-hot: #ffd98a;
+  --gold-deep: #b86b12;
+  --gold-glow: rgba(255, 179, 71, 0.35);
+
+  /* The Game Master's voice. */
+  --gm: #b9a2ff;
+  --gm-dim: rgba(185, 162, 255, 0.55);
+  --gm-glow: rgba(185, 162, 255, 0.25);
+
+  --danger: #ff5d6c;
+
+  --attr-STR: #ff6a4d;
+  --attr-INT: #6aa8ff;
+  --attr-DEX: #b9f25c;
+  --attr-VIT: #4fe3c1;
+  --attr-CHA: #ff79d8;
+
+  --rarity-common: #c9ccd6;
+  --rarity-rare: #6aa8ff;
+  --rarity-epic: #b9a2ff;
+  --rarity-legendary: #ffb347;
+
+  --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --cut: 14px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Atmosphere: vignette + faint survey grid. Fixed so it never repaints on scroll. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(1200px 700px at 18% -10%, rgba(255, 179, 71, 0.07), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(185, 162, 255, 0.06), transparent 60%),
+    radial-gradient(1000px 800px at 50% 120%, rgba(79, 227, 193, 0.04), transparent 60%),
+    var(--bg);
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 10%, transparent 75%);
+  opacity: 0.35;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--bg);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'zero' 1;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-mid);
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

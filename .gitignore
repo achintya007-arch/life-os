@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Deployment / tooling local state
+.vercel/
+.netlify/
+.claude/
+
+# Logs & temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+tmp/
+*.tmp
+
+# Editors & OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.suo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local LIFE//OS save exports (personal data)
+life-os-save-*.json
+
+.vercel
