@@ -11,43 +11,36 @@ import './styles/hud.css';
 import './styles/hq.css';
 import './styles/views.css';
 import './styles/celebration.css';
-import { GameStore } from './store/gameStore';
-import { LocalEventStore, SaveError } from './store/eventStore';
-import { GameProvider } from './store/GameContext';
+import './styles/save.css';
+import { Runtime } from './app/runtime';
+import { RuntimeProvider } from './app/RuntimeContext';
+import { browserStorage } from './store/keyValue';
+import { browserCloud } from './sync/cloud';
+import { deviceId } from './sync/deviceSession';
 import { CelebrationProvider } from './ui/celebration/Celebration';
 import { App } from './ui/App';
+import { LinkFlowHost } from './ui/save/LinkFlowHost';
 
-function bootStore(): { store: GameStore; recovered: boolean } {
-  const persistence = new LocalEventStore(window.localStorage);
-  try {
-    return { store: new GameStore(persistence), recovered: false };
-  } catch (e) {
-    if (!(e instanceof SaveError)) throw e;
-    // Never destroy unreadable data: set it aside and start clean.
-    console.error('LIFE//OS: save could not be loaded and was quarantined.', e);
-    persistence.quarantine();
-    return { store: new GameStore(persistence), recovered: true };
-  }
-}
+const storage = browserStorage();
+const runtime = new Runtime(storage, browserCloud, deviceId(storage)).boot();
 
-const { store, recovered } = bootStore();
-if (recovered) {
-  window.setTimeout(() => alert('LIFE//OS could not read your save. A backup copy was kept in local storage.'), 0);
+if (runtime.recoveredCorruptSave) {
+  window.setTimeout(() => alert('LIFE//OS could not read part of your save. A copy was kept on this device, and nothing was deleted.'), 0);
 }
 
 // Debug handles, development builds only.
 if (import.meta.env.DEV) {
-  const w = window as unknown as { lifeos: GameStore; lifeosSeed: () => void };
-  w.lifeos = store;
-  w.lifeosSeed = () => void import('./dev/seed').then((m) => store.replaceAll(m.buildDemoHistory()));
+  const w = window as unknown as { lifeos: Runtime; lifeosSeed: () => void };
+  w.lifeos = runtime;
+  w.lifeosSeed = () => void import('./dev/seed').then((m) => runtime.importEvents(m.buildDemoHistory(), runtime.mode.kind === 'guest' ? 'replace' : 'merge'));
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <GameProvider store={store}>
+    <RuntimeProvider runtime={runtime} persistent={<LinkFlowHost />}>
       <CelebrationProvider>
         <App />
       </CelebrationProvider>
-    </GameProvider>
+    </RuntimeProvider>
   </StrictMode>,
 );

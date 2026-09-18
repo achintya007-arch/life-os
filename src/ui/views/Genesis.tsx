@@ -12,7 +12,7 @@ const BOOT: [string, string][] = [
   ['preparing adventure', 'ready'],
 ];
 
-export function Genesis() {
+export function Genesis({ onSignIn }: { onSignIn?: () => void }) {
   const { act } = useCelebration();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -83,8 +83,13 @@ export function Genesis() {
               </button>
             </div>
             <p className="genesis__privacy mono">
-              <span className="dim">◇</span> Everything stays on this device. Nothing is sent anywhere.
+              <span className="dim">◇</span> Plays instantly as a guest. Your save stays on this device unless you choose to sync it.
             </p>
+            {onSignIn && (
+              <button type="button" className="genesis__signin mono" onClick={onSignIn}>
+                ALREADY PLAYING ON ANOTHER DEVICE? <span className="gold">SIGN IN →</span>
+              </button>
+            )}
           </form>
         )}
       </div>
