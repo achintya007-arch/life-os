@@ -3,12 +3,18 @@
 /* ── Genesis ── */
 .genesis {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 32px 20px;
+  /* minmax(0, 1fr): the track must never grow to its content's max width (it widened phone viewports) */
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  padding: max(32px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
 }
 .genesis__inner {
-  width: min(680px, 100%);
+  width: 100%;
+  max-width: 680px;
+  min-width: 0;
+  margin-inline: auto;
 }
 .genesis__logo {
   font-size: 22px;

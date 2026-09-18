@@ -318,3 +318,22 @@
     min-height: 36px;
   }
 }
+
+/* Touch devices: every tappable text link gets a thumb-sized hit area (≥ 44px), visuals unchanged. */
+@media (pointer: coarse) {
+  .link,
+  .sheet__title,
+  .questlog__cleared-toggle,
+  .gm__ask,
+  .campaign__retire,
+  .campaign__retire-confirm button,
+  .offers__reroll,
+  .topbar__logo {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .chapter__clear {
+    min-height: 40px;
+  }
+}
