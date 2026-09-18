@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { sfx } from '../../audio/sfx';
 import { useRuntime } from '../../app/RuntimeContext';
-import { browserCloud, currentUser, sendSignInCode, verifySignInCode, type CloudUser } from '../../sync/cloud';
+import { browserCloud, currentUser, sendSignInCode, signOutCloud, verifySignInCode, type CloudUser } from '../../sync/cloud';
 import { executeLink, inspectLink, type LinkChoice, type LinkPlan, type SaveSummary } from '../../sync/migration';
 import { Glyph } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -18,6 +18,7 @@ import { submitOnEnter } from '../components/submitOnEnter';
 
 type Step =
   | { id: 'email' }
+  | { id: 'continue'; user: CloudUser }
   | { id: 'code' }
   | { id: 'scanning' }
   | { id: 'choose'; plan: Extract<LinkPlan, { kind: 'choose' }> }
@@ -45,13 +46,31 @@ export function LinkFlow({
   const [cooldown, setCooldown] = useState(0);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const user = useRef<CloudUser | null>(null);
-  const guestName = runtime.mode.kind === 'guest' ? runtime.store.getState().character?.name ?? null : null;
+  // Captured once: linking swaps the save mid-flow, and the title must not change under the player.
+  const [guestName] = useState(() => (runtime.mode.kind === 'guest' ? runtime.store.getState().character?.name ?? null : null));
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => window.clearTimeout(t);
   }, [cooldown]);
+
+  // Already verified earlier (flow closed before linking, or an expired game session with a live
+  // auth session)? Offer to continue instead of spending another rate-limited email.
+  useEffect(() => {
+    if (resumeFromRedirect) return;
+    let alive = true;
+    void currentUser()
+      .then((u) => {
+        if (!alive || !u) return;
+        if (mode === 'reauth' && runtime.mode.kind === 'account' && u.userId !== runtime.mode.userId) return;
+        setStep((s) => (s.id === 'email' ? { id: 'continue', user: u } : s));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [resumeFromRedirect, mode, runtime]);
 
   // Returning from a magic link: the session is already established by the client.
   useEffect(() => {
@@ -181,6 +200,38 @@ export function LinkFlow({
             </div>
             <p className="link-flow__fine mono">No password. We email you a one-time code. Your save data is private to your account.</p>
           </form>
+        )}
+
+        {step.id === 'continue' && (
+          <div className="link-flow__form">
+            <p className="link-flow__copy">
+              You’re already verified as <strong>{step.user.email}</strong>.
+            </p>
+            <div className="link-flow__actions">
+              <button
+                className="btn btn--gold btn--lg"
+                data-autofocus
+                onClick={() => {
+                  user.current = step.user;
+                  setEmail(step.user.email);
+                  void afterVerified(step.user);
+                }}
+              >
+                CONTINUE AS {step.user.email.split('@')[0]!.toUpperCase()}
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => {
+                  void signOutCloud().catch(() => undefined);
+                  setEmail('');
+                  setStep({ id: 'email' });
+                }}
+              >
+                USE A DIFFERENT EMAIL
+              </button>
+            </div>
+          </div>
         )}
 
         {step.id === 'code' && (
