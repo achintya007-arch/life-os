@@ -23,7 +23,7 @@ type Step =
   | { id: 'scanning' }
   | { id: 'choose'; plan: Extract<LinkPlan, { kind: 'choose' }> }
   | { id: 'working'; label: string }
-  | { id: 'done'; name: string | null; uploaded: number; keptBackup: boolean }
+  | { id: 'done'; name: string | null; uploaded: number; keptBackup: boolean; loaded?: boolean }
   | { id: 'error'; message: string; retry: 'email' | 'scan' };
 
 export type LinkFlowMode = 'link' | 'reauth';
@@ -155,7 +155,7 @@ export function LinkFlow({
       const result = await executeLink({ storage: runtime.storage, transport, userId: u.userId, email: u.email, deviceId: runtime.deviceId, guestEvents, plan, choice });
       runtime.enterAccount(u);
       sfx.play('levelUp');
-      setStep({ id: 'done', name: runtime.store.getState().character?.name ?? null, uploaded: result.uploaded, keptBackup: result.keptBackupId !== null });
+      setStep({ id: 'done', name: runtime.store.getState().character?.name ?? null, uploaded: result.uploaded, keptBackup: result.keptBackupId !== null, loaded: choice === 'adopt' });
     } catch (err) {
       setStep({ id: 'error', message: friendly(err), retry: 'scan' });
     }
@@ -286,11 +286,21 @@ export function LinkFlow({
             <div className="link-flow__done-kicker mono">
               <span className="sync-dot" /> SYNCED
             </div>
-            <h3 className="link-flow__done-title">{mode === 'reauth' ? 'Back in sync.' : step.name ? `${step.name} is bound to your account.` : 'Your account is ready.'}</h3>
+            <h3 className="link-flow__done-title">
+              {mode === 'reauth'
+                ? 'Back in sync.'
+                : step.loaded && step.name
+                  ? `${step.name} is here.`
+                  : step.name
+                    ? `${step.name} is bound to your account.`
+                    : 'Your account is ready.'}
+            </h3>
             <p className="link-flow__copy">
               {mode === 'reauth'
                 ? 'Everything you did while signed out is on its way to the cloud.'
-                : 'Same character on every device. Sign in with this email on your phone or laptop and pick up exactly where you left off.'}
+                : step.loaded
+                  ? 'Loaded from your account, exactly where you left off. Everything you do here syncs to your other devices.'
+                  : 'Same character on every device. Sign in with this email on your phone or laptop and pick up exactly where you left off.'}
               {step.keptBackup && ' Your previous guest save was kept as a backup on this device (System → Backups).'}
             </p>
             <div className="link-flow__actions">
