@@ -10,6 +10,7 @@
  * damaged log degrades gracefully instead of crashing.
  */
 import { evaluateAchievements } from './achievements';
+import { classBonusRatio } from './classes';
 import {
   ATTRIBUTES,
   CAMPAIGN_COMPLETE_BONUS_XP,
@@ -18,12 +19,15 @@ import {
   RESTED_BONUS_RATIO,
   RESTED_GAP_DAYS,
   TIER_INFO,
+  WEEKLY_BONUS_PER_TARGET,
+  BOSS_STRIKE_XP,
   type Attribute,
+  type Tier,
 } from './constants';
-import { daysBetween } from './dates';
+import { daysBetween, startOfWeek } from './dates';
 import { attributeRank, levelInfo } from './leveling';
 import { unlockedTitleIds } from './titles';
-import type { Campaign, Deed, Effect, EventOf, GameEvent, GameState, Quest, XpReason, XpTransaction } from './types';
+import type { Campaign, Contract, Deed, Effect, EventOf, GameEvent, GameState, Quest, WeeklyGoal, XpReason, XpTransaction } from './types';
 
 export function initialState(): GameState {
   return {
@@ -38,6 +42,10 @@ export function initialState(): GameState {
     attributeXp: Object.fromEntries(ATTRIBUTES.map((a) => [a, 0])) as Record<Attribute, number>,
     achievements: {},
     lastActiveDate: null,
+    dailies: {},
+    weeklyGoals: {},
+    weeklyGoalOrder: [],
+    interests: [],
   };
 }
 
@@ -51,7 +59,7 @@ export function applyEvent(state: GameState, event: GameEvent): ApplyResult {
     case 'character.created':
       if (state.character) return { state, effects: [] };
       return {
-        state: { ...state, character: { name: event.name, createdAt: event.at, equippedTitleId: null } },
+        state: { ...state, character: { name: event.name, createdAt: event.at, equippedTitleId: null, classId: null } },
         effects: [],
       };
 
@@ -65,6 +73,58 @@ export function applyEvent(state: GameState, event: GameEvent): ApplyResult {
         state: { ...state, character: { ...state.character, equippedTitleId: event.titleId } },
         effects: [],
       };
+
+    case 'character.classChosen':
+      if (!state.character) return { state, effects: [] };
+      return { state: { ...state, character: { ...state.character, classId: event.classId } }, effects: [] };
+
+    case 'profile.interestsSet':
+      return { state: { ...state, interests: [...event.interests] }, effects: [] };
+
+    case 'daily.issued': {
+      // First board for a date wins (another device may have issued it too).
+      if (!state.character || state.dailies[event.localDate]) return { state, effects: [] };
+      return {
+        state: {
+          ...state,
+          dailies: {
+            ...state.dailies,
+            [event.localDate]: { date: event.localDate, budget: event.budget, contracts: event.contracts, completed: [], issuedAt: event.at },
+          },
+        },
+        effects: [],
+      };
+    }
+
+    case 'daily.completed':
+      return applyContractCompleted(state, event);
+
+    case 'weekly.goalSet': {
+      if (!state.character || state.weeklyGoals[event.goalId]) return { state, effects: [] };
+      // Deeds already done this week count: a goal describes the week, not just the future.
+      const progress = state.deeds.filter((d) => startOfWeek(d.localDate) === event.weekStart && goalMatches(event.match, d)).length;
+      const goal: WeeklyGoal = {
+        id: event.goalId,
+        weekStart: event.weekStart,
+        label: event.label,
+        target: event.target,
+        match: event.match,
+        progress,
+        status: 'active',
+        metAt: null,
+        bonus: event.target * WEEKLY_BONUS_PER_TARGET,
+      };
+      return {
+        state: { ...state, weeklyGoals: { ...state.weeklyGoals, [goal.id]: goal }, weeklyGoalOrder: [...state.weeklyGoalOrder, goal.id] },
+        effects: [],
+      };
+    }
+
+    case 'weekly.goalRemoved': {
+      const goal = state.weeklyGoals[event.goalId];
+      if (!goal || goal.status !== 'active') return { state, effects: [] };
+      return { state: { ...state, weeklyGoals: { ...state.weeklyGoals, [goal.id]: { ...goal, status: 'removed' } } }, effects: [] };
+    }
 
     case 'quest.created': {
       if (state.quests[event.questId]) return { state, effects: [] };
@@ -153,12 +213,17 @@ function applyQuestCompleted(state: GameState, event: EventOf<'quest.completed'>
   if (!quest || quest.status !== 'active') return { state, effects: [] };
   if (quest.cadence === 'daily' && quest.lastCompletedDate === event.localDate) return { state, effects: [] };
 
+  // Boss HP: a multi-hit boss takes several sessions; only the last strike defeats it.
+  const hits = quest.cadence === 'once' ? Math.max(1, quest.hits ?? 1) : 1;
+  const strikeNumber = quest.timesCompleted + 1;
+  const defeated = strikeNumber >= hits;
+
   const updatedQuest: Quest = {
     ...quest,
-    timesCompleted: quest.timesCompleted + 1,
+    timesCompleted: strikeNumber,
     lastCompletedDate: event.localDate,
-    status: quest.cadence === 'once' ? 'cleared' : 'active',
-    clearedAt: quest.cadence === 'once' ? event.at : quest.clearedAt,
+    status: quest.cadence === 'once' && defeated ? 'cleared' : 'active',
+    clearedAt: quest.cadence === 'once' && defeated ? event.at : quest.clearedAt,
   };
   const withQuest: GameState = { ...state, quests: { ...state.quests, [quest.id]: updatedQuest } };
 
@@ -167,15 +232,17 @@ function applyQuestCompleted(state: GameState, event: EventOf<'quest.completed'>
     kind: 'quest',
     refId: quest.id,
     title: quest.title,
-    tier: quest.tier,
+    tier: defeated ? quest.tier : 'challenge',
     attribute: quest.attribute,
     at: event.at,
     localDate: event.localDate,
     localHour: event.localHour,
     xp: 0,
+    ...(hits > 1 ? { strike: { n: strikeNumber, of: hits } } : {}),
   };
 
-  return awardDeed(state, withQuest, deed, [{ amount: TIER_INFO[quest.tier].xp, reason: 'quest' }], {
+  const amount = defeated ? TIER_INFO[quest.tier].xp : BOSS_STRIKE_XP;
+  return awardDeed(state, withQuest, deed, [{ amount, reason: 'quest' }], {
     quest: updatedQuest,
     campaignCompleted: false,
   });
@@ -229,6 +296,44 @@ function applyChapterCleared(state: GameState, event: EventOf<'campaign.chapterC
   return result;
 }
 
+function contractTier(c: Contract): Tier {
+  return c.kind === 'challenge' ? 'challenge' : c.kind === 'daily' ? 'tiny' : 'standard';
+}
+
+function applyContractCompleted(state: GameState, event: EventOf<'daily.completed'>): ApplyResult {
+  const board = state.dailies[event.localDate];
+  if (!board) return { state, effects: [] };
+  const contract = board.contracts.find((c) => c.id === event.contractId);
+  if (!contract || board.completed.includes(contract.id)) return { state, effects: [] };
+
+  const completed = [...board.completed, contract.id];
+  const withBoard: GameState = { ...state, dailies: { ...state.dailies, [board.date]: { ...board, completed } } };
+  const deed: Deed = {
+    id: event.id,
+    kind: 'contract',
+    refId: contract.id,
+    title: contract.title,
+    tier: contractTier(contract),
+    attribute: contract.attribute,
+    at: event.at,
+    localDate: event.localDate,
+    localHour: event.localHour,
+    xp: 0,
+  };
+  // Contract XP is exact: no rested or class bonus touches the daily budget.
+  const result = awardDeed(state, withBoard, deed, [{ amount: contract.xp, reason: 'contract' }], {
+    campaignCompleted: false,
+    fixedXp: true,
+  });
+  if (completed.length === board.contracts.length) result.effects.push({ kind: 'dailySweep', date: board.date, xp: board.budget });
+  return result;
+}
+
+function goalMatches(match: WeeklyGoal['match'], deed: Deed): boolean {
+  if ('questId' in match) return deed.kind === 'quest' && deed.refId === match.questId;
+  return deed.attribute === match.attribute;
+}
+
 /**
  * Shared reward pipeline for every deed.
  * `before` is the state prior to the event (for level/attribute/title diffs);
@@ -239,17 +344,38 @@ function awardDeed(
   state: GameState,
   deed: Deed,
   grants: { amount: number; reason: XpReason }[],
-  extra: { quest?: Quest; campaign?: Campaign; campaignCompleted: boolean },
+  extra: { quest?: Quest; campaign?: Campaign; campaignCompleted: boolean; fixedXp?: boolean },
 ): ApplyResult {
   const gapDays = before.lastActiveDate === null ? null : daysBetween(before.lastActiveDate, deed.localDate);
+  const base = grants.reduce((s, g) => s + g.amount, 0);
 
   const allGrants = [...grants];
   let restedBonus = 0;
-  if (gapDays !== null && gapDays >= RESTED_GAP_DAYS) {
-    const base = grants.reduce((s, g) => s + g.amount, 0);
-    restedBonus = Math.max(RESTED_BONUS_MIN, Math.round(base * RESTED_BONUS_RATIO));
-    allGrants.push({ amount: restedBonus, reason: 'rested' });
+  if (!extra.fixedXp) {
+    const classRatio = classBonusRatio(before.character?.classId ?? null, deed.attribute);
+    if (classRatio > 0) allGrants.push({ amount: Math.round(base * classRatio), reason: 'class' });
+    if (gapDays !== null && gapDays >= RESTED_GAP_DAYS) {
+      restedBonus = Math.max(RESTED_BONUS_MIN, Math.round(base * RESTED_BONUS_RATIO));
+      allGrants.push({ amount: restedBonus, reason: 'rested' });
+    }
   }
+
+  // Weekly goals this deed advances; a goal reaching its target pays its bonus once.
+  const week = startOfWeek(deed.localDate);
+  let weeklyGoals = state.weeklyGoals;
+  const goalEffects: Effect[] = [];
+  for (const id of state.weeklyGoalOrder) {
+    const g = weeklyGoals[id]!;
+    if (g.status === 'removed' || g.weekStart !== week || !goalMatches(g.match, deed)) continue;
+    const progress = g.progress + 1;
+    const justMet = g.status === 'active' && progress >= g.target;
+    weeklyGoals = { ...weeklyGoals, [id]: { ...g, progress, status: justMet ? 'met' : g.status, metAt: justMet ? deed.at : g.metAt } };
+    if (justMet) {
+      allGrants.push({ amount: g.bonus, reason: 'weekly' });
+      goalEffects.push({ kind: 'weeklyGoalMet', goalId: id, label: g.label, bonus: g.bonus });
+    }
+  }
+  const withGoals = weeklyGoals === state.weeklyGoals ? state : { ...state, weeklyGoals };
 
   const transactions: XpTransaction[] = allGrants.map((g, i) => ({
     id: `${deed.id}:${i}`,
@@ -264,7 +390,7 @@ function awardDeed(
   const finalDeed: Deed = { ...deed, xp: gained };
 
   let next: GameState = {
-    ...state,
+    ...withGoals,
     deeds: [...state.deeds, finalDeed],
     transactions: [...state.transactions, ...transactions],
     totalXp: state.totalXp + gained,
@@ -275,6 +401,7 @@ function awardDeed(
 
   const effects: Effect[] = [{ kind: 'deed', deed: finalDeed, restedBonus }];
   for (const t of transactions) effects.push({ kind: 'xp', amount: t.amount, reason: t.reason, attribute: t.attribute });
+  effects.push(...goalEffects);
 
   const levelBefore = levelInfo(before.totalXp).level;
   const levelAfter = levelInfo(next.totalXp).level;
@@ -326,6 +453,8 @@ export function replay(events: readonly GameEvent[]): GameState {
 }
 
 /** Guard used by the undo command: which events can be reverted. */
-export function isDeedEvent(e: GameEvent): e is EventOf<'quest.completed'> | EventOf<'campaign.chapterCleared'> {
-  return e.type === 'quest.completed' || e.type === 'campaign.chapterCleared';
+export function isDeedEvent(
+  e: GameEvent,
+): e is EventOf<'quest.completed'> | EventOf<'campaign.chapterCleared'> | EventOf<'daily.completed'> {
+  return e.type === 'quest.completed' || e.type === 'campaign.chapterCleared' || e.type === 'daily.completed';
 }

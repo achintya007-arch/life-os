@@ -8,7 +8,7 @@
  * (anon/authenticated get ALL on new tables and EXECUTE on new functions), so
  * the tests only pass if the migration explicitly locks everything down.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 
@@ -38,8 +38,10 @@ export const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 export async function createTestDatabase(): Promise<TestDb> {
   const pg = new PGlite();
   await pg.exec(SUPABASE_SHIM);
-  const sql = readFileSync(join(MIGRATIONS_DIR, '20260918000000_accounts_sync.sql'), 'utf8');
-  await pg.exec(sql);
+  // Every migration, in order — exactly what production has applied.
+  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    await pg.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
+  }
   return new TestDb(pg);
 }
 

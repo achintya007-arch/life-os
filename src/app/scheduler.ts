@@ -3,13 +3,15 @@
  *   • shortly after local progress (debounced, so a burst of deeds = one push)
  *   • when the connection comes back
  *   • when the tab/app becomes visible again (picking up the phone)
- *   • every minute while visible, to pick up other devices' progress
+ *   • instantly when another device writes (realtime), with polling every
+ *     minute while visible as the fallback
  *   • with exponential backoff while offline or failing
  */
 import type { Runtime } from './runtime';
 
 const DEBOUNCE_MS = 1500;
 const POLL_MS = 60_000;
+const LIVE_DEBOUNCE_MS = 400;
 const BACKOFF_START_MS = 5_000;
 const BACKOFF_MAX_MS = 5 * 60_000;
 
@@ -72,10 +74,28 @@ export function startSyncScheduler(runtime: Runtime): () => void {
     if (document.visibilityState === 'visible' && backoff === 0) void run();
   }, POLL_MS);
 
-  void runtime.connect().then(run);
+  // Live updates: another device wrote → pull right away (a short debounce batches bursts).
+  let unsubscribeLive: (() => void) | null = null;
+  const session = runtime.session;
+  void runtime.connect().then(async () => {
+    await run();
+    if (disposed || !session || !runtime.cloud.subscribe || runtime.status().kind !== 'account') return;
+    try {
+      const stop = await runtime.cloud.subscribe(session.userId, (fromDevice) => {
+        if (fromDevice === runtime.deviceId) return; // our own echo
+        backoff = 0;
+        schedule(LIVE_DEBOUNCE_MS);
+      });
+      if (disposed) stop();
+      else unsubscribeLive = stop;
+    } catch {
+      /* live updates are an enhancement; polling still runs */
+    }
+  });
 
   return () => {
     disposed = true;
+    unsubscribeLive?.();
     clear();
     unsubscribe();
     window.removeEventListener('online', now);

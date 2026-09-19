@@ -150,6 +150,14 @@ describe('database authorization (RLS + grants)', () => {
     expect(row!.last_seq).toBe(0);
   });
 
+  it('accepts every event type the engine can produce, and nothing else', async () => {
+    const { EVENT_TYPES } = await import('../engine/validate');
+    const events = EVENT_TYPES.map((type, i) => ev(`t${i}`, type));
+    const rows = await push(db, A, events);
+    expect(rows).toHaveLength(EVENT_TYPES.length);
+    await expect(push(db, A, [ev('nope', 'daily.hacked')])).rejects.toThrow(/game_events_known_type/);
+  });
+
   it('delete_my_account erases exactly the caller — and nobody else', async () => {
     await push(db, A, [ev('a1'), ev('a2')]);
     await push(db, B, [ev('b1')]);

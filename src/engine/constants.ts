@@ -31,6 +31,15 @@ export type Cadence = (typeof CADENCES)[number];
 export const CHAPTER_XP = 150;
 export const CAMPAIGN_COMPLETE_BONUS_XP = 500;
 
+/** XP for each non-final strike on a multi-hit boss (the final strike pays the full boss XP). */
+export const BOSS_STRIKE_XP = 80;
+export const BOSS_MAX_HITS = 10;
+
+/** Weekly goal bonus, per completion targeted. A 3× goal pays 60 XP. */
+export const WEEKLY_BONUS_PER_TARGET = 20;
+export const WEEKLY_MAX_TARGET = 7;
+export const WEEKLY_MAX_GOALS = 3;
+
 /**
  * Rested XP: coming back after time away is rewarded, never punished.
  * If the last active day was at least RESTED_GAP_DAYS ago, the first deed of the
@@ -47,4 +56,7 @@ export const LIMITS = {
   campaignNameMax: 80,
   chaptersMin: 1,
   chaptersMax: 12,
+  goalLabelMax: 60,
+  interestsMax: 8,
+  interestLengthMax: 30,
 };

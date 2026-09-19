@@ -6,7 +6,8 @@
  *
  * The goal: nothing that passes here can crash projection or the UI.
  */
-import { ATTRIBUTES, CADENCES, TIERS } from './constants';
+import { isClassId } from './classes';
+import { ATTRIBUTES, BOSS_MAX_HITS, CADENCES, TIERS } from './constants';
 import { isLocalDate } from './dates';
 import type { GameEvent, GameEventType } from './types';
 
@@ -22,6 +23,12 @@ export const EVENT_TYPES: readonly GameEventType[] = [
   'campaign.chapterCleared',
   'campaign.retired',
   'deed.undone',
+  'character.classChosen',
+  'profile.interestsSet',
+  'daily.issued',
+  'daily.completed',
+  'weekly.goalSet',
+  'weekly.goalRemoved',
 ];
 const TYPE_SET = new Set<string>(EVENT_TYPES);
 
@@ -44,6 +51,7 @@ function draftProblem(d: unknown, partial: boolean): string | null {
   if ((!partial || d.tier !== undefined) && !oneOf(TIERS, d.tier)) return 'bad quest tier';
   if ((!partial || d.attribute !== undefined) && !oneOf(ATTRIBUTES, d.attribute)) return 'bad attribute';
   if ((!partial || d.cadence !== undefined) && !oneOf(CADENCES, d.cadence)) return 'bad cadence';
+  if (d.hits !== undefined && !(Number.isInteger(d.hits) && (d.hits as number) >= 1 && (d.hits as number) <= BOSS_MAX_HITS)) return 'bad boss HP';
   return null;
 }
 
@@ -85,6 +93,33 @@ export function eventProblem(raw: unknown): string | null {
       return isId(e.campaignId) ? null : 'bad campaign id';
     case 'deed.undone':
       return isId(e.targetEventId) ? null : 'bad undo target';
+    case 'character.classChosen':
+      return isClassId(e.classId) ? null : 'unknown class';
+    case 'profile.interestsSet':
+      return Array.isArray(e.interests) && e.interests.length <= 20 && e.interests.every((i) => isText(i, 40)) ? null : 'bad interests';
+    case 'daily.issued': {
+      if (!isLocalDate(e.localDate)) return 'bad board date';
+      if (!Number.isInteger(e.budget) || (e.budget as number) < 0 || (e.budget as number) > 5000) return 'bad budget';
+      if (!Array.isArray(e.contracts) || e.contracts.length > 6) return 'bad contracts';
+      for (const c of e.contracts) {
+        if (!isObj(c) || !isId(c.id) || !isId(c.key) || !isText(c.title, 200) || !oneOf(ATTRIBUTES, c.attribute)) return 'bad contract';
+        if (!Number.isInteger(c.xp) || (c.xp as number) < 0 || (c.xp as number) > 5000) return 'bad contract XP';
+        if (!oneOf(['daily', 'class', 'challenge', 'interest'], c.kind)) return 'bad contract kind';
+        if (c.detail !== undefined && !isText(c.detail, MAX_TEXT)) return 'bad contract detail';
+      }
+      return null;
+    }
+    case 'daily.completed':
+      return !isId(e.contractId) ? 'bad contract id' : moment();
+    case 'weekly.goalSet': {
+      if (!isId(e.goalId) || !isLocalDate(e.weekStart) || !isText(e.label, 80)) return 'bad weekly goal';
+      if (!Number.isInteger(e.target) || (e.target as number) < 1 || (e.target as number) > 14) return 'bad goal target';
+      const m = e.match;
+      if (!isObj(m) || !(isId(m.questId) || oneOf(ATTRIBUTES, m.attribute))) return 'bad goal match';
+      return null;
+    }
+    case 'weekly.goalRemoved':
+      return isId(e.goalId) ? null : 'bad goal id';
   }
 }
 

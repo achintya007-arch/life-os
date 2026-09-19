@@ -3,11 +3,22 @@
  * This is the only place new events are born. Clock and id generation are
  * injected so every command is reproducible in tests.
  */
-import { ATTRIBUTES, CADENCES, LIMITS, TIERS, type Attribute } from './constants';
-import { toLocalDate } from './dates';
+import { isClassId, type ClassId } from './classes';
+import {
+  ATTRIBUTES,
+  BOSS_MAX_HITS,
+  CADENCES,
+  LIMITS,
+  TIERS,
+  WEEKLY_MAX_GOALS,
+  WEEKLY_MAX_TARGET,
+  type Attribute,
+} from './constants';
+import { generateDailyBoard } from './contracts';
+import { startOfWeek, toLocalDate } from './dates';
 import { isDeedEvent } from './project';
 import { TITLE_BY_ID, isTitleUnlocked } from './titles';
-import type { GameEvent, GameState, QuestDraft } from './types';
+import type { GameEvent, GameState, GoalMatch, QuestDraft } from './types';
 
 export interface CommandContext {
   now: Date;
@@ -27,7 +38,13 @@ export type Command =
   | { type: 'createCampaign'; name: string; attribute: Attribute; chapters: string[] }
   | { type: 'clearChapter'; campaignId: string; chapterId: string }
   | { type: 'retireCampaign'; campaignId: string }
-  | { type: 'undoDeed'; eventId: string };
+  | { type: 'undoDeed'; eventId: string }
+  | { type: 'chooseClass'; classId: ClassId }
+  | { type: 'setInterests'; interests: string[] }
+  | { type: 'issueDaily' }
+  | { type: 'completeContract'; contractId: string }
+  | { type: 'setWeeklyGoal'; label: string; target: number; match: GoalMatch }
+  | { type: 'removeWeeklyGoal'; goalId: string };
 
 const fail = (error: string): CommandResult => ({ ok: false, error });
 const ok = (...events: GameEvent[]): CommandResult => ({ ok: true, events });
@@ -62,6 +79,10 @@ function validateDraft(draft: Partial<QuestDraft>, partial: boolean): Partial<Qu
   if (!partial || draft.cadence !== undefined) {
     if (!CADENCES.includes(draft.cadence as never)) return 'Unknown cadence.';
     out.cadence = draft.cadence;
+  }
+  if (draft.hits !== undefined) {
+    if (!Number.isInteger(draft.hits) || draft.hits < 1 || draft.hits > BOSS_MAX_HITS) return `Boss HP is 1–${BOSS_MAX_HITS} strikes.`;
+    out.hits = draft.hits;
   }
   return out;
 }
@@ -182,6 +203,70 @@ export function execute(
       if (!campaign) return fail('Campaign not found.');
       if (campaign.status !== 'active') return fail('That campaign is not active.');
       return ok({ ...base(), type: 'campaign.retired', campaignId: campaign.id });
+    }
+
+    case 'chooseClass': {
+      if (!isClassId(command.classId)) return fail('Unknown class.');
+      if (state.character?.classId === command.classId) return fail('You already walk that path.');
+      return ok({ ...base(), type: 'character.classChosen', classId: command.classId });
+    }
+
+    case 'setInterests': {
+      if (!Array.isArray(command.interests)) return fail('Interests must be a list.');
+      const seen = new Set<string>();
+      const interests: string[] = [];
+      for (const raw of command.interests) {
+        const i = cleanText(raw, LIMITS.interestLengthMax);
+        if (!i) continue;
+        const key = i.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        interests.push(i);
+      }
+      if (interests.length > LIMITS.interestsMax) return fail(`Pick up to ${LIMITS.interestsMax} interests.`);
+      return ok({ ...base(), type: 'profile.interestsSet', interests });
+    }
+
+    case 'issueDaily': {
+      const date = toLocalDate(ctx.now);
+      if (state.dailies[date]) return fail('Today’s contracts are already on the board.');
+      const board = generateDailyBoard(state, date, ctx.now.toISOString());
+      if (board.contracts.length === 0) return fail('No contracts could be issued.');
+      return ok({ ...base(), type: 'daily.issued', localDate: date, budget: board.contracts.reduce((s, c) => s + c.xp, 0), contracts: board.contracts });
+    }
+
+    case 'completeContract': {
+      const m = moment();
+      const board = state.dailies[m.localDate];
+      const contract = board?.contracts.find((c) => c.id === command.contractId);
+      if (!board || !contract) return fail('That contract expired at midnight. Today’s board has new ones.');
+      if (board.completed.includes(contract.id)) return fail('Contract already fulfilled.');
+      return ok({ ...base(), ...m, type: 'daily.completed', contractId: contract.id });
+    }
+
+    case 'setWeeklyGoal': {
+      const label = cleanText(command.label, LIMITS.goalLabelMax);
+      if (!label) return fail(`Give the goal a name (1–${LIMITS.goalLabelMax} characters).`);
+      if (!Number.isInteger(command.target) || command.target < 1 || command.target > WEEKLY_MAX_TARGET) {
+        return fail(`Aim for 1–${WEEKLY_MAX_TARGET} times this week.`);
+      }
+      const match = command.match;
+      if ('questId' in match) {
+        const q = state.quests[match.questId];
+        if (!q || q.status !== 'active') return fail('Pick an active quest for this goal.');
+      } else if (!ATTRIBUTES.includes(match.attribute)) {
+        return fail('Unknown attribute.');
+      }
+      const weekStart = startOfWeek(toLocalDate(ctx.now));
+      const thisWeek = state.weeklyGoalOrder.map((id) => state.weeklyGoals[id]!).filter((g) => g.weekStart === weekStart && g.status !== 'removed');
+      if (thisWeek.length >= WEEKLY_MAX_GOALS) return fail(`Up to ${WEEKLY_MAX_GOALS} goals a week — keep it light.`);
+      return ok({ ...base(), type: 'weekly.goalSet', goalId: ctx.newId(), weekStart, label, target: command.target, match });
+    }
+
+    case 'removeWeeklyGoal': {
+      const goal = state.weeklyGoals[command.goalId];
+      if (!goal || goal.status !== 'active') return fail('That goal isn’t active.');
+      return ok({ ...base(), type: 'weekly.goalRemoved', goalId: goal.id });
     }
 
     case 'undoDeed': {

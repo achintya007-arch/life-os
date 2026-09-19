@@ -26,6 +26,8 @@ export interface CloudApi {
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;
   updateProfileName(userId: string, name: string): Promise<void>;
+  /** Optional live channel: called when another device writes to this user's log. */
+  subscribe?(userId: string, onRemoteWrite: (deviceId: string | null) => void): Promise<() => void>;
 }
 
 export type Notice =

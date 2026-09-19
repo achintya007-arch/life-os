@@ -234,6 +234,29 @@ export function supabaseTransport(client: SupabaseClient): SyncTransport {
   };
 }
 
+/* ─────────────────────────── realtime ─────────────────────────── */
+
+/**
+ * Get told the moment another device writes to this player's log. Realtime
+ * enforces the same Row-Level Security as queries, so only this user's rows
+ * can ever arrive. The payload is only used as a nudge: the actual events are
+ * always fetched through the normal pull path (validated, ordered, deduped).
+ */
+export async function subscribeToLog(userId: string, onRemoteWrite: (deviceId: string | null) => void): Promise<() => void> {
+  const client = await getClient();
+  const channel = client
+    .channel(`life-os:${userId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'game_events', filter: `user_id=eq.${userId}` },
+      (payload) => onRemoteWrite(((payload.new ?? {}) as { device_id?: string | null }).device_id ?? null),
+    )
+    .subscribe();
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
 /* ─────────────────────────── errors ─────────────────────────── */
 
 interface ErrorLike {
@@ -283,4 +306,5 @@ export const browserCloud: CloudApi = {
   signOut: signOutCloud,
   deleteAccount: deleteCloudAccount,
   updateProfileName,
+  subscribe: subscribeToLog,
 };

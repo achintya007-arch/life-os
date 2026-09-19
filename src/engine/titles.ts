@@ -29,6 +29,7 @@ const ACHIEVEMENT_TITLE_NAMES: Record<string, string> = {
   returned: 'The Returned',
   nocturnal: 'Creature of the Night',
   'grass-toucher': 'Toucher of Grass',
+  contractor: 'The Contractor',
 };
 
 export const TITLES: readonly TitleDef[] = [

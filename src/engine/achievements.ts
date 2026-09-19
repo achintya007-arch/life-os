@@ -32,6 +32,11 @@ const OUTDOOR_RE =
   /\b(walk|walking|run|running|jog|jogging|hike|hiking|outside|outdoors?|park|grass|sun|sunlight|beach|garden|bike|cycling|swim|trail|forest|nature)\b/i;
 const WATER_RE = /\b(water|hydrate|hydration)\b/i;
 
+function isSwept(state: GameState, date: string): boolean {
+  const b = state.dailies[date];
+  return !!b && b.contracts.length > 0 && b.completed.length === b.contracts.length;
+}
+
 function deedsOn(state: GameState, date: string): number {
   let n = 0;
   for (const d of state.deeds) if (d.localDate === date) n++;
@@ -130,6 +135,47 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     hidden: false,
     rarity: 'epic',
     check: ({ state }) => levelInfo(state.totalXp).level >= 10,
+  },
+  {
+    id: 'contractor',
+    name: 'ON THE BOARD',
+    description: 'Fulfil your first daily contract.',
+    hidden: false,
+    rarity: 'common',
+    check: ({ deed }) => deed.kind === 'contract',
+  },
+  {
+    id: 'clean-sweep',
+    name: 'CLEAN SWEEP',
+    description: 'Fulfil every contract on a day’s board.',
+    hidden: false,
+    rarity: 'rare',
+    check: ({ state, deed }) => deed.kind === 'contract' && isSwept(state, deed.localDate),
+  },
+  {
+    id: 'seven-sweeps',
+    name: 'THE CONTRACTOR',
+    description: 'Clean-sweep the daily board seven times.',
+    hidden: false,
+    rarity: 'epic',
+    titleId: 'contractor',
+    check: ({ state }) => Object.keys(state.dailies).filter((d) => isSwept(state, d)).length >= 7,
+  },
+  {
+    id: 'weekly-winner',
+    name: 'WEEK WON',
+    description: 'Reach one of your weekly goals.',
+    hidden: false,
+    rarity: 'common',
+    check: ({ state }) => Object.values(state.weeklyGoals).some((g) => g.status === 'met'),
+  },
+  {
+    id: 'giant-slayer',
+    name: 'GIANT SLAYER',
+    description: 'Defeat a boss with 5 or more HP.',
+    hidden: false,
+    rarity: 'epic',
+    check: ({ deed, quest }) => deed.kind === 'quest' && !!quest && (quest.hits ?? 1) >= 5 && quest.status === 'cleared',
   },
   /* ── Hidden: discovered, not chased ── */
   {
