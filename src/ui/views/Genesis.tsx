@@ -12,7 +12,14 @@ const BOOT: [string, string][] = [
   ['preparing adventure', 'ready'],
 ];
 
-export function Genesis({ onSignIn }: { onSignIn?: () => void }) {
+export function Genesis({
+  onSignIn,
+  account,
+}: {
+  onSignIn?: () => void;
+  /** Signed in, but this account has no character yet. */
+  account?: { email: string; onSignOut: () => void };
+}) {
   const { act } = useCelebration();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -82,13 +89,26 @@ export function Genesis({ onSignIn }: { onSignIn?: () => void }) {
                 BEGIN
               </button>
             </div>
-            <p className="genesis__privacy mono">
-              <span className="dim">◇</span> Plays instantly as a guest. Your save stays on this device unless you choose to sync it.
-            </p>
-            {onSignIn && (
-              <button type="button" className="genesis__signin mono" onClick={onSignIn}>
-                ALREADY PLAYING ON ANOTHER DEVICE? <span className="gold">SIGN IN →</span>
-              </button>
+            {account ? (
+              <>
+                <p className="genesis__privacy mono">
+                  <span className="sync-dot" /> Signed in as {account.email}. This character will sync to all your devices.
+                </p>
+                <button type="button" className="genesis__signin mono" onClick={account.onSignOut}>
+                  NOT YOU? <span className="gold">SIGN OUT →</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="genesis__privacy mono">
+                  <span className="dim">◇</span> Plays instantly as a guest. Your save stays on this device unless you choose to sync it.
+                </p>
+                {onSignIn && (
+                  <button type="button" className="genesis__signin mono" onClick={onSignIn}>
+                    ALREADY PLAYING ON ANOTHER DEVICE? <span className="gold">SIGN IN →</span>
+                  </button>
+                )}
+              </>
             )}
           </form>
         )}

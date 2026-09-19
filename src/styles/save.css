@@ -389,3 +389,8 @@
     height: 44px;
   }
 }
+.genesis__privacy .sync-dot {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}

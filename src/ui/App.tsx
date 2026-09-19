@@ -28,6 +28,7 @@ function readHash(): View {
 }
 
 export function App() {
+  const runtime = useRuntime();
   const state = useGameState();
   const now = useNow();
   const [view, setView] = useState<View>(readHash);
@@ -60,7 +61,10 @@ export function App() {
   if (!state.character) {
     return (
       <>
-        <Genesis onSignIn={cloudAvailable ? () => openLink('link') : undefined} />
+        <Genesis
+          onSignIn={cloudAvailable && runtime.mode.kind === 'guest' ? () => openLink('link') : undefined}
+          account={runtime.mode.kind === 'account' ? { email: runtime.mode.email, onSignOut: () => void runtime.signOut() } : undefined}
+        />
         {overlays}
       </>
     );
