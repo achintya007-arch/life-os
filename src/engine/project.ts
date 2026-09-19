@@ -46,6 +46,8 @@ export function initialState(): GameState {
     weeklyGoals: {},
     weeklyGoalOrder: [],
     interests: [],
+    interestLevels: {},
+    dismissedInterests: [],
   };
 }
 
@@ -79,7 +81,15 @@ export function applyEvent(state: GameState, event: GameEvent): ApplyResult {
       return { state: { ...state, character: { ...state.character, classId: event.classId } }, effects: [] };
 
     case 'profile.interestsSet':
-      return { state: { ...state, interests: [...event.interests] }, effects: [] };
+      return {
+        state: {
+          ...state,
+          interests: [...event.interests],
+          interestLevels: event.levels ? { ...event.levels } : state.interestLevels,
+          dismissedInterests: event.dismissed ? [...event.dismissed] : state.dismissedInterests,
+        },
+        effects: [],
+      };
 
     case 'daily.issued': {
       // First board for a date wins (another device may have issued it too).

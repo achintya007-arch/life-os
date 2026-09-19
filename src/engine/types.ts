@@ -51,7 +51,14 @@ export type GameEvent =
   | (EventBase & { type: 'character.renamed'; name: string })
   | (EventBase & { type: 'character.titleEquipped'; titleId: string | null })
   | (EventBase & { type: 'character.classChosen'; classId: ClassId })
-  | (EventBase & { type: 'profile.interestsSet'; interests: string[] })
+  | (EventBase & {
+      type: 'profile.interestsSet';
+      interests: string[];
+      /** Self-rated skill per interest (1 new · 2 some experience · 3 seasoned), keyed by normalized name. */
+      levels?: Record<string, 1 | 2 | 3>;
+      /** Catalog ids of inferred interests the player said aren't them. */
+      dismissed?: string[];
+    })
   | (EventBase & { type: 'daily.issued'; localDate: LocalDate; budget: number; contracts: Contract[] })
   | (EventBase & LocalMoment & { type: 'daily.completed'; contractId: string })
   | (EventBase & { type: 'weekly.goalSet'; goalId: string; weekStart: LocalDate; label: string; target: number; match: GoalMatch })
@@ -185,6 +192,10 @@ export interface GameState {
   weeklyGoalOrder: string[];
   /** Declared interests (personalization). */
   interests: string[];
+  /** Self-rated skill per declared interest, keyed by normalized name. */
+  interestLevels: Record<string, 1 | 2 | 3>;
+  /** Inferred interests the player dismissed (catalog ids). */
+  dismissedInterests: string[];
 }
 
 /* ─────────────────────────── Effects (what the UI should celebrate) ─────────────────────────── */

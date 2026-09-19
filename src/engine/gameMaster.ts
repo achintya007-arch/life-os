@@ -6,6 +6,7 @@
  * these functions (state in → narration out) is deliberately the seam where an
  * LLM-backed GM can be plugged in later, with the player's permission.
  */
+import { activeInterests, interestQuest, matchInterest } from './interests';
 import { ATTRIBUTES, ATTRIBUTE_INFO, RESTED_GAP_DAYS, TIER_INFO, type Attribute, type Cadence, type Tier } from './constants';
 import { ACHIEVEMENT_BY_ID } from './achievements';
 import { addDays, daysBetween, toLocalDate } from './dates';
@@ -191,6 +192,21 @@ export function briefing(state: GameState, now: Date): Briefing {
     else if (open.length === board.contracts.length)
       lines.push(fill(pick(['{n} contracts on the board. {xp} XP waiting.', 'Today’s board is posted: {n} contracts, {xp} XP.'], seed), { n: open.length, xp: board.budget }));
     else lines.push(fill('{n} {c} left on today’s board.', { n: open.length, c: open.length === 1 ? 'contract' : 'contracts' }));
+    const personal = open.find((c) => c.interest);
+    if (personal && lines.length < 3)
+      lines.push(
+        fill(
+          pick(
+            [
+              '{i} is on the board today. I pay attention.',
+              'I put some {i} on your board. You’re welcome.',
+              'Today’s board has {i} in it. Tailored, like good armor.',
+            ],
+            seed + personal.id,
+          ),
+          { i: personal.interest! },
+        ),
+      );
   }
 
   if (lvl.progress >= 0.75) {
@@ -365,6 +381,20 @@ export function suggestQuests(state: GameState, now: Date, count = 3, reroll = 0
 
   const picks: SuggestedQuest[] = [];
   const used = new Set<string>();
+  // Personal first: a repeatable quest for one of the player's interests they don't already track.
+  const personal = activeInterests(state).filter((i) => {
+    const q = interestQuest(i);
+    return !existing.has(q.title.toLowerCase()) && !state.questOrder.some((id) => {
+      const quest = state.quests[id]!;
+      return quest.status === 'active' && matchInterest(quest.title)?.id === i.def?.id && !!i.def;
+    });
+  });
+  if (personal.length) {
+    const i = pick(personal, seed + 'interest');
+    const q = interestQuest(i);
+    picks.push({ title: q.title, tier: 'standard', attribute: i.attribute, cadence: 'daily', pitch: q.pitch });
+    used.add(q.title);
+  }
   // Brand-new players get a tiny quest first: the fastest possible first win.
   if (state.deeds.length === 0) {
     const tiny = available.filter((s) => s.tier === 'tiny');

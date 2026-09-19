@@ -3,6 +3,7 @@ import { sfx } from '../../audio/sfx';
 import { CLASSES, type ClassId } from '../../engine/classes';
 import { LIMITS } from '../../engine/constants';
 import { ClassGrid, classSummary } from '../hq/ClassPicker';
+import { InterestPicker, type InterestDraft } from '../hq/InterestPicker';
 import { useCelebration } from '../celebration/Celebration';
 import { submitOnEnter } from '../components/submitOnEnter';
 
@@ -26,8 +27,9 @@ export function Genesis({
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [igniting, setIgniting] = useState(false);
-  const [phase, setPhase] = useState<'name' | 'class'>('name');
+  const [phase, setPhase] = useState<'name' | 'class' | 'interests'>('name');
   const [classId, setClassId] = useState<ClassId | null>(null);
+  const [interests, setInterests] = useState<InterestDraft>({ interests: [], levels: {} });
   const ready = step >= BOOT.length;
 
   useEffect(() => {
@@ -44,13 +46,23 @@ export function Genesis({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const begin = (chosen: ClassId | null) => {
+  const toInterests = (chosen: ClassId | null) => {
+    setClassId(chosen);
+    sfx.play('accept');
+    setPhase('interests');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const begin = (withInterests: boolean) => {
     if (igniting) return;
     setIgniting(true);
     sfx.play('levelUp');
     window.setTimeout(() => {
       const r = act({ type: 'createCharacter', name }, { silent: true });
-      if (r.ok && chosen) act({ type: 'chooseClass', classId: chosen }, { silent: true });
+      if (!r.ok) return;
+      if (classId) act({ type: 'chooseClass', classId }, { silent: true });
+      if (withInterests && interests.interests.length)
+        act({ type: 'setInterests', interests: interests.interests, levels: interests.levels }, { silent: true });
     }, 900);
   };
 
@@ -88,12 +100,42 @@ export function Genesis({
               <button type="button" className="btn btn--ghost" onClick={() => setPhase('name')} disabled={igniting}>
                 BACK
               </button>
-              <button type="button" className="btn btn--gold btn--lg" disabled={!classId || igniting} onClick={() => begin(classId)}>
-                {classId ? `BEGIN AS ${CLASSES[classId].name.toUpperCase()}` : 'PICK A CLASS'}
+              <button type="button" className="btn btn--gold btn--lg" disabled={!classId || igniting} onClick={() => toInterests(classId)}>
+                {classId ? `CONTINUE AS ${CLASSES[classId].name.toUpperCase()}` : 'PICK A CLASS'}
               </button>
             </div>
-            <button type="button" className="genesis__signin mono" onClick={() => begin(null)} disabled={igniting}>
-              CAN’T DECIDE? <span className="gold">START WITHOUT A CLASS →</span>
+            <button type="button" className="genesis__signin mono" onClick={() => toInterests(null)} disabled={igniting}>
+              CAN’T DECIDE? <span className="gold">CONTINUE WITHOUT A CLASS →</span>
+            </button>
+          </div>
+        )}
+
+        {ready && phase === 'interests' && (
+          <div className="genesis__form genesis__class">
+            <div className="genesis__kicker mono">YOUR INTERESTS</div>
+            <h1 className="genesis__headline genesis__headline--small">
+              What does <span className="genesis__accent">{name.trim()}</span> love doing?
+            </h1>
+            <p className="genesis__copy">
+              Pick a few, or type your own. Your daily contracts are built around them: play guitar and you’ll get guitar challenges;
+              solve cubes and you’ll get cubing ones. Tell us how experienced you are so the first ones fit.
+            </p>
+            <InterestPicker value={interests} onChange={setInterests} />
+            <div className="genesis__input-row genesis__class-actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setPhase('class')} disabled={igniting}>
+                BACK
+              </button>
+              <button
+                type="button"
+                className="btn btn--gold btn--lg"
+                disabled={!interests.interests.length || igniting}
+                onClick={() => begin(true)}
+              >
+                {interests.interests.length ? 'BEGIN' : 'PICK AT LEAST ONE'}
+              </button>
+            </div>
+            <button type="button" className="genesis__signin mono" onClick={() => begin(false)} disabled={igniting}>
+              NOTHING COMES TO MIND? <span className="gold">SKIP FOR NOW →</span>
             </button>
           </div>
         )}

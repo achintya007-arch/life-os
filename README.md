@@ -53,6 +53,22 @@ Long-term goals are broken into chapters that are cleared in order. Each chapter
 
 There are 18 achievements, 7 of them secret: you find those by playing, not by reading a checklist. Several grant **equippable titles** that appear under your name.
 
+### Classes
+Brawler (STR/VIT), Archer (DEX/STR), Mage (INT/DEX), Bard (CHA/DEX), Monk (VIT/INT) or Wanderer (+7% everything). A class gives +20% XP on its primary attribute and +10% on its secondary, and shapes the daily contracts. It can be changed any time; past XP stays as earned.
+
+### Daily contracts
+Every day the system posts three contracts that can't be edited: a small step for the weakest attribute, a session in today's focus interest (or the class's craft), and a Game Master challenge — usually the once-quest you've avoided longest. They're the only source of a fixed daily XP budget (100 XP at level 1, up to 400). Missing them costs nothing. Boards are generated deterministically from the character and the date, so every device agrees.
+
+### Personalization
+Players tell the game what they love doing — from a catalog of ~26 interests (guitar, Rubik's cube, chess, running, coding, cooking…) or in their own words — and how experienced they are. Contracts and Game Master suggestions are then built around those interests: a guitarist gets guitar contracts, a cuber gets cubing ones.
+- **Ranks.** Each interest has Novice / Adept / Expert tasks. Rank is the higher of the self-rating and what's been earned (12 interest deeds → Adept, 40 → Expert), so the challenges grow with the player.
+- **Inference.** The Game Master notices interests in the quest log ("Play a chess game" done repeatedly → chess), feeds the strongest two into contracts, and offers them to confirm or dismiss.
+- **Anything goes.** Unknown interests ("pottery") get generic tasks in the player's own words, with the attribute guessed from keywords.
+Everything runs locally and deterministically in `src/engine/interests.ts` and `interestCatalog.ts`.
+
+### Boss quests & weekly goals
+Boss quests can have multi-day HP (up to 10 strikes): each strike earns 80 XP and the final blow the full boss reward. Weekly goals (up to three, e.g. "Guitar 3×") pay a bonus when met and simply reset on Monday if not.
+
 ### The Game Master
 
 A local narrator with a voice. It greets you based on how long you've been away and reacts to what you just did. It spotlights a quest you've been avoiding and offers a "side story" to get you started. It also proposes new quests aimed at your weakest attributes.

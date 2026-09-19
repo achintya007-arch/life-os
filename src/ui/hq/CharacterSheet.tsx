@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { weekActivity } from '../../engine/chronicle';
 import { ATTRIBUTES, ATTRIBUTE_INFO, RESTED_GAP_DAYS } from '../../engine/constants';
 import { daysBetween, startOfWeek, toLocalDate } from '../../engine/dates';
@@ -8,8 +8,11 @@ import type { GameState } from '../../engine/types';
 import { CountUp } from '../components/CountUp';
 import { Frame } from '../components/Frame';
 import { CLASSES } from '../../engine/classes';
-import { AttributeIcon, ClassIcon } from '../components/Icon';
+import { RANK_NAMES } from '../../engine/interestCatalog';
+import { activeInterests } from '../../engine/interests';
+import { AttributeIcon, ClassIcon, Glyph } from '../components/Icon';
 import { ClassModal } from './ClassPicker';
+import { InterestsModal } from './InterestPicker';
 import { XpBar } from '../components/XpBar';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -29,11 +32,14 @@ export function CharacterHero({ state, now, onOpenVault }: { state: GameState; n
   const xpToday = state.transactions.reduce((sum, t) => (t.localDate === today ? sum + t.amount : sum), 0);
   const deedsToday = state.deeds.filter((d) => d.localDate === today).length;
   const [classOpen, setClassOpen] = useState(false);
+  const [interestsOpen, setInterestsOpen] = useState(false);
+  const interests = useMemo(() => activeInterests(state), [state]);
   const classId = state.character?.classId ?? null;
 
   return (
     <Frame className="hero" as="section" label="CHARACTER FILE" index="01">
       {classOpen && <ClassModal onClose={() => setClassOpen(false)} />}
+      {interestsOpen && <InterestsModal onClose={() => setInterestsOpen(false)} />}
       <div className="hero__identity">
         <div className="level-badge level-badge--hero" key={info.level}>
           <span className="level-badge__label mono">LVL</span>
@@ -59,6 +65,30 @@ export function CharacterHero({ state, now, onOpenVault }: { state: GameState; n
             <button className="sheet__title" onClick={onOpenVault} title="Change title">
               {title.name}
             </button>
+          </div>
+          <div className="hero__interests">
+            {interests.slice(0, 4).map((i) => (
+              <button
+                key={i.id}
+                className={`interest-chip ${i.source === 'inferred' ? 'is-inferred' : ''}`}
+                style={{ '--accent': `var(--attr-${i.attribute})` } as React.CSSProperties}
+                onClick={() => setInterestsOpen(true)}
+                title={i.source === 'inferred' ? `Noticed in your quest log — tap to confirm` : `${RANK_NAMES[i.rank]} · tap to edit interests`}
+              >
+                <AttributeIcon attribute={i.attribute} size={11} /> {i.name}
+                <span className="interest-chip__rank">{i.source === 'inferred' ? '?' : 'I'.repeat(i.rank)}</span>
+              </button>
+            ))}
+            {interests.length > 4 && (
+              <button className="interest-chip" onClick={() => setInterestsOpen(true)}>
+                +{interests.length - 4}
+              </button>
+            )}
+            {state.interests.length === 0 && (
+              <button className="interest-chip interest-chip--empty" onClick={() => setInterestsOpen(true)}>
+                <Glyph name="plus" size={10} /> {interests.length ? 'ADD YOUR INTERESTS' : 'WHAT DO YOU LOVE DOING?'}
+              </button>
+            )}
           </div>
           <div className="hero__lifetime mono dim">
             LIFETIME <CountUp to={state.totalXp} /> XP

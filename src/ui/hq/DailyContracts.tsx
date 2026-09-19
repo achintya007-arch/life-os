@@ -21,7 +21,7 @@ function untilMidnight(now: Date): string {
 }
 
 function kindLabel(c: Contract, state: GameState): string {
-  if (c.kind === 'challenge') return 'GM CHALLENGE';
+  if (c.kind === 'challenge') return c.interest ? `GM CHALLENGE · ${c.interest.toUpperCase()}` : 'GM CHALLENGE';
   if (c.kind === 'interest' && c.interest) return c.interest.toUpperCase();
   if (c.kind === 'class') {
     const cls = state.character?.classId;

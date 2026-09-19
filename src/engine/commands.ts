@@ -3,6 +3,8 @@
  * This is the only place new events are born. Clock and id generation are
  * injected so every command is reproducible in tests.
  */
+import { interestLevelKey } from './interests';
+import { INTERESTS_BY_ID } from './interestCatalog';
 import { isClassId, type ClassId } from './classes';
 import {
   ATTRIBUTES,
@@ -40,7 +42,7 @@ export type Command =
   | { type: 'retireCampaign'; campaignId: string }
   | { type: 'undoDeed'; eventId: string }
   | { type: 'chooseClass'; classId: ClassId }
-  | { type: 'setInterests'; interests: string[] }
+  | { type: 'setInterests'; interests: string[]; levels?: Record<string, number>; dismissed?: string[] }
   | { type: 'issueDaily' }
   | { type: 'completeContract'; contractId: string }
   | { type: 'setWeeklyGoal'; label: string; target: number; match: GoalMatch }
@@ -224,7 +226,15 @@ export function execute(
         interests.push(i);
       }
       if (interests.length > LIMITS.interestsMax) return fail(`Pick up to ${LIMITS.interestsMax} interests.`);
-      return ok({ ...base(), type: 'profile.interestsSet', interests });
+      const levels: Record<string, 1 | 2 | 3> = {};
+      const given = command.levels ?? {};
+      for (const i of interests) {
+        const key = interestLevelKey(i);
+        const level = given[key] ?? state.interestLevels[key];
+        if (level === 1 || level === 2 || level === 3) levels[key] = level;
+      }
+      const dismissed = [...new Set(command.dismissed ?? state.dismissedInterests)].filter((id) => id in INTERESTS_BY_ID);
+      return ok({ ...base(), type: 'profile.interestsSet', interests, levels, dismissed });
     }
 
     case 'issueDaily': {

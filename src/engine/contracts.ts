@@ -4,10 +4,12 @@
  * challenge — but missing them costs nothing; tomorrow brings a new board.
  *
  *   slot 1 · DAILY      — a small task that strengthens the weakest attribute
- *   slot 2 · CLASS      — a real session in the class's primary attribute
- *                         (or the player's interests, when they match)
+ *   slot 2 · INTEREST   — a real session in today's focus interest (interests
+ *                         rotate day to day), or the class's craft if the
+ *                         player hasn't told us what they love yet
  *   slot 3 · CHALLENGE  — the Game Master's pick: a quest the player has been
- *                         avoiding, or a hard push when nothing is neglected
+ *                         avoiding; otherwise a hard push — in another interest
+ *                         on some days, in the class's secondary on others
  *
  * Generation is deterministic (seeded by the character and the date), so two
  * devices issuing the same day's board from the same history agree exactly.
@@ -16,7 +18,7 @@ import { CLASSES } from './classes';
 import { ATTRIBUTES, type Attribute } from './constants';
 import { addDays, daysBetween, type LocalDate } from './dates';
 import { levelInfo } from './leveling';
-import { interestTasks } from './interests';
+import { activeInterests, interestTasks, type ResolvedInterest } from './interests';
 import { BASE_TASKS, type TaskTemplate } from './taskLibrary';
 import type { Contract, DailyBoard, GameState, Quest } from './types';
 
@@ -87,6 +89,12 @@ function neglectedQuest(state: GameState, date: LocalDate): Quest | null {
   return best?.q ?? null;
 }
 
+/** Today's focus: declared interests weigh double, then a seeded pick. */
+function pickFocus(interests: ResolvedInterest[], r: () => number, exclude?: string): ResolvedInterest | undefined {
+  const pool = interests.flatMap((i) => (i.id === exclude ? [] : i.source === 'declared' ? [i, i] : [i]));
+  return pick(pool, r);
+}
+
 function weakestAttribute(state: GameState, r: () => number): Attribute {
   const min = Math.min(...ATTRIBUTES.map((a) => state.attributeXp[a]));
   const tied = ATTRIBUTES.filter((a) => state.attributeXp[a] === min);
@@ -136,13 +144,14 @@ export function generateDailyBoard(state: GameState, date: LocalDate, issuedAt: 
   const daily = choose((c) => c.attribute === weak && c.effort === 1 && !c.interest) ?? choose((c) => c.effort === 1);
   if (daily) contracts.push(make(1, daily, xp1, 'daily'));
 
-  // Slot 2 — the class's craft. An interest in that attribute wins; otherwise any interest; otherwise the class pool.
+  // Slot 2 — today's focus interest; the class's craft when there are no interests.
+  const interests = activeInterests(state);
+  const focus = pickFocus(interests, r);
   const classAttr = classDef?.primary ?? pick(ATTRIBUTES, r)!;
   const second =
-    choose((c) => !!c.interest && c.attribute === classAttr && c.effort === 2) ??
-    choose((c) => !!c.interest && c.effort === 2) ??
-    choose((c) => c.attribute === classAttr && c.effort === 2 && !c.interest) ??
-    choose((c) => c.effort === 2);
+    (focus && choose((c) => c.interest === focus.name && c.effort === 2)) ||
+    choose((c) => c.attribute === classAttr && c.effort === 2 && !c.interest) ||
+    choose((c) => c.effort === 2 && !c.interest);
   if (second) contracts.push(make(2, second, xp2, second.interest ? 'interest' : 'class'));
 
   // Slot 3 — the Game Master's challenge.
@@ -160,11 +169,13 @@ export function generateDailyBoard(state: GameState, date: LocalDate, issuedAt: 
       questId: avoided.id,
     });
   } else {
+    // A second interest (or the same one, if it's the only one) on about half the days.
     const hardAttr = classDef?.secondary ?? weak;
+    const other = interests.length && r() < 0.5 ? (pickFocus(interests, r, focus?.id) ?? focus) : undefined;
     const hard =
-      choose((c) => !!c.interest && c.effort === 3) ??
-      choose((c) => c.attribute === hardAttr && c.effort === 3) ??
-      choose((c) => c.effort === 3);
+      (other && choose((c) => c.interest === other.name && c.effort === 3)) ||
+      choose((c) => c.attribute === hardAttr && c.effort === 3 && !c.interest) ||
+      choose((c) => c.effort === 3 && !c.interest);
     if (hard) contracts.push(make(3, hard, xp3, 'challenge'));
   }
 

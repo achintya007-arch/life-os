@@ -96,7 +96,15 @@ export function eventProblem(raw: unknown): string | null {
     case 'character.classChosen':
       return isClassId(e.classId) ? null : 'unknown class';
     case 'profile.interestsSet':
-      return Array.isArray(e.interests) && e.interests.length <= 20 && e.interests.every((i) => isText(i, 40)) ? null : 'bad interests';
+      if (!(Array.isArray(e.interests) && e.interests.length <= 20 && e.interests.every((i) => isText(i, 40)))) return 'bad interests';
+      if (e.levels !== undefined) {
+        if (typeof e.levels !== 'object' || e.levels === null || Array.isArray(e.levels)) return 'bad interest levels';
+        const entries = Object.entries(e.levels);
+        if (entries.length > 20 || entries.some(([k, v]) => k.length > 40 || (v !== 1 && v !== 2 && v !== 3))) return 'bad interest levels';
+      }
+      if (e.dismissed !== undefined && !(Array.isArray(e.dismissed) && e.dismissed.length <= 50 && e.dismissed.every((d) => isText(d, 40))))
+        return 'bad dismissed interests';
+      return null;
     case 'daily.issued': {
       if (!isLocalDate(e.localDate)) return 'bad board date';
       if (!Number.isInteger(e.budget) || (e.budget as number) < 0 || (e.budget as number) > 5000) return 'bad budget';
