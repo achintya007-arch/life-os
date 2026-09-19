@@ -5,7 +5,7 @@ import type { GameEvent } from '../../engine/types';
 import { deleteBackup, listBackups, readBackupFile } from '../../store/backups';
 import { SaveError, parseSave } from '../../store/eventStore';
 import { useGameState, useNow } from '../../store/GameContext';
-import { cloudAvailable } from '../../sync/cloud';
+import { MIN_PASSWORD, cloudAvailable, updatePassword } from '../../sync/cloud';
 import { useCelebration } from '../celebration/Celebration';
 import { Modal } from '../components/Modal';
 import { submitOnEnter } from '../components/submitOnEnter';
@@ -266,6 +266,7 @@ export function SystemMenu({ onClose, onLink }: { onClose: () => void; onLink: (
         {isAccount && (
           <section className="system__section">
             <div className="field__label mono">ACCOUNT</div>
+            {status.connection === 'connected' && <PasswordSetter />}
             {confirm === 'sign-out' ? (
               <div className="system__confirm">
                 <p className="system__copy">
@@ -340,5 +341,68 @@ export function SystemMenu({ onClose, onLink }: { onClose: () => void; onLink: (
         </section>
       </div>
     </Modal>
+  );
+}
+
+/** Set or change the account password — also how accounts created by an emailed link get one. */
+function PasswordSetter() {
+  const { notify } = useCelebration();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) {
+    return (
+      <div className="system__row system__row--spaced">
+        <button className="btn" onClick={() => setOpen(true)}>
+          SET / CHANGE PASSWORD
+        </button>
+      </div>
+    );
+  }
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters.`);
+    setBusy(true);
+    setError(null);
+    try {
+      await updatePassword(password);
+      notify('Password saved. Use it to sign in on any device.');
+      setOpen(false);
+      setPassword('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the password.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="system__confirm" onSubmit={save} onKeyDown={submitOnEnter}>
+      <label className="field">
+        <span className="field__label mono">
+          NEW PASSWORD <span className="dim">· at least {MIN_PASSWORD} characters</span>
+        </span>
+        <input
+          className="field__input"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          data-autofocus
+        />
+      </label>
+      {error && <div className="composer__error mono">{error}</div>}
+      <div className="system__row system__row--spaced">
+        <button className="btn btn--gold" disabled={busy || password.length < MIN_PASSWORD}>
+          {busy ? 'SAVING…' : 'SAVE PASSWORD'}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={() => setOpen(false)}>
+          CANCEL
+        </button>
+      </div>
+    </form>
   );
 }

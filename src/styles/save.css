@@ -337,3 +337,55 @@
     min-height: 40px;
   }
 }
+
+/* ── Password sign-in ── */
+.link-flow__modes {
+  width: 100%;
+}
+.link-flow__modes button {
+  flex: 1;
+  justify-content: center;
+  min-height: 44px;
+}
+.password-row {
+  position: relative;
+}
+.password-row .field__input {
+  padding-right: 72px;
+}
+.password-row__toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+.password-row__toggle:hover {
+  color: var(--text);
+}
+.link-flow__alt {
+  font: inherit;
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 6px 0;
+}
+.system__row--spaced {
+  margin: 10px 0;
+}
+
+@media (pointer: coarse) {
+  .link-flow__alt {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .modal__header .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+}

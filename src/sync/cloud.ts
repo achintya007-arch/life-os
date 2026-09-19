@@ -11,11 +11,11 @@ import type { CloudApi } from '../app/runtime';
 import type { GameEvent } from '../engine/types';
 import { SyncError, type RemoteEvent, type SyncTransport } from './types';
 
-const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 /** False in builds without cloud configuration: the game runs guest-only. */
-export const cloudAvailable = Boolean(URL && ANON_KEY);
+export const cloudAvailable = Boolean(SUPABASE_URL && ANON_KEY);
 
 export interface CloudUser {
   userId: string;
@@ -27,7 +27,7 @@ let clientPromise: Promise<SupabaseClient> | null = null;
 export function getClient(): Promise<SupabaseClient> {
   if (!cloudAvailable) return Promise.reject(new SyncError('server', 'Cloud saves are not configured in this build.'));
   clientPromise ??= import('@supabase/supabase-js').then(({ createClient }) =>
-    createClient(URL!, ANON_KEY!, {
+    createClient(SUPABASE_URL!, ANON_KEY!, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -40,14 +40,130 @@ export function getClient(): Promise<SupabaseClient> {
   return clientPromise;
 }
 
-/** Did this page load come back from an emailed sign-in link? */
+/* ─────────────────────────── returning from an emailed link ─────────────────────────── */
+
+export interface AuthRedirect {
+  /** Supabase reported an error in the URL (expired link, already used…). */
+  error: string | null;
+  /** This is a password-reset link: the player should choose a new password. */
+  recovery: boolean;
+}
+
+/**
+ * Read (without consuming) what an emailed link put in the URL. Pure, so it can be
+ * captured at boot — before anything else touches the URL — and tested.
+ */
+export function parseAuthRedirect(href: string): AuthRedirect | null {
+  const url = new URL(href);
+  const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const errorDescription = url.searchParams.get('error_description') ?? hash.get('error_description');
+  const hasCredential = url.searchParams.has('code') || hash.has('access_token');
+  if (!hasCredential && !errorDescription) return null;
+  return {
+    error: errorDescription ? friendlyLinkError(errorDescription) : null,
+    recovery: url.searchParams.get('flow') === 'recovery' || hash.get('type') === 'recovery',
+  };
+}
+
+function friendlyLinkError(description: string): string {
+  if (/expired|invalid/i.test(description)) return 'That email link has expired or was already used. Links work once, within an hour.';
+  return description.replace(/\+/g, ' ');
+}
+
+/** Captured once at module load, before any code can rewrite the URL. */
+export const bootRedirect: AuthRedirect | null = typeof window !== 'undefined' ? parseAuthRedirect(window.location.href) : null;
+
+/**
+ * Whether THIS browser requested the emailed link (it holds the PKCE verifier).
+ * Read at boot, because a successful exchange removes it.
+ */
+const bootHadVerifier: boolean = (() => {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem('life-os.auth-code-verifier') !== null;
+  } catch {
+    return false;
+  }
+})();
+
 export function isAuthRedirect(): boolean {
-  const { search, hash } = window.location;
-  return /[?&]code=/.test(search) || /access_token=|error_description=/.test(hash);
+  return bootRedirect !== null;
+}
+
+/**
+ * Finish an emailed-link sign-in. The client is created here (if it wasn't
+ * already) and fully initialized — which exchanges the one-time code in the URL
+ * for a session — and only THEN is the URL tidied. (Tidying first destroyed the
+ * code before the lazily loaded client could read it.)
+ */
+export async function completeAuthRedirect(): Promise<{ user: CloudUser | null; error: string | null; recovery: boolean }> {
+  const redirect = bootRedirect ?? { error: null, recovery: false };
+  let user: CloudUser | null = null;
+  let error = redirect.error;
+  if (!error) {
+    try {
+      user = await currentUser(); // getSession() awaits initialization, including the code exchange
+    } catch {
+      error = 'Could not reach the cloud to finish signing in. Check your connection and try again.';
+    }
+  }
+  if (!user && !error) {
+    error = bootHadVerifier
+      ? 'That link has expired or was already used (some mail apps open links to scan them). Sign in with your email and password instead.'
+      : 'That link was opened in a different browser than the one it was requested from, so it can’t sign you in here. Sign in with your email and password instead.';
+  }
+  window.history.replaceState(null, '', window.location.pathname + '#/character');
+  return { user, error, recovery: redirect.recovery };
 }
 
 /* ─────────────────────────── auth ─────────────────────────── */
 
+export const MIN_PASSWORD = 8;
+
+function toUser(u: { id: string; email?: string } | null | undefined): CloudUser {
+  if (!u?.email) throw new SyncError('auth', 'Sign-in did not return a user.');
+  return { userId: u.id, email: u.email };
+}
+
+/** Create an account. Email confirmation is off, so this signs the player in immediately — no email is sent. */
+export async function signUpWithPassword(email: string, password: string): Promise<CloudUser> {
+  const client = await getClient();
+  const { data, error } = await client.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (error) throw authError(error);
+  // An already-registered email comes back without a session (and without identities).
+  if (!data.session || (data.user && data.user.identities?.length === 0)) {
+    throw new SyncError('auth', 'An account with this email already exists. Sign in instead.');
+  }
+  return toUser(data.user);
+}
+
+export async function signInWithPassword(email: string, password: string): Promise<CloudUser> {
+  const client = await getClient();
+  const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+  if (error) throw authError(error);
+  return toUser(data.user);
+}
+
+/** Emails a link that signs the player in and asks for a new password. */
+export async function sendPasswordReset(email: string): Promise<void> {
+  const client = await getClient();
+  const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/?flow=recovery`,
+  });
+  if (error) throw authError(error);
+}
+
+/** Set or change the signed-in player's password (also how link-created accounts get one). */
+export async function updatePassword(password: string): Promise<void> {
+  const client = await getClient();
+  const { error } = await client.auth.updateUser({ password });
+  if (error) throw authError(error);
+}
+
+/** Passwordless: emails a sign-in link (plus a code, if the email template includes one). */
 export async function sendSignInCode(email: string): Promise<void> {
   const client = await getClient();
   const { error } = await client.auth.signInWithOtp({
@@ -61,9 +177,7 @@ export async function verifySignInCode(email: string, code: string): Promise<Clo
   const client = await getClient();
   const { data, error } = await client.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' });
   if (error) throw authError(error);
-  const user = data.user ?? data.session?.user;
-  if (!user?.email) throw new SyncError('auth', 'Sign-in did not return a user.');
-  return { userId: user.id, email: user.email };
+  return toUser(data.user ?? data.session?.user);
 }
 
 /** The signed-in user from the locally stored session (no network round-trip). */
@@ -141,13 +255,23 @@ function dbError(e: ErrorLike): SyncError {
   return new SyncError('server', e.message ?? 'The cloud returned an error.');
 }
 
-function authError(e: ErrorLike): SyncError {
+export function authError(e: ErrorLike): SyncError {
   if (looksOffline(e)) return new SyncError('offline', 'You’re offline. Connect to the internet to sign in.');
-  const msg = e.message ?? '';
-  if (e.status === 429 || /rate limit/i.test(msg)) return new SyncError('server', 'Too many sign-in emails. Wait a few minutes and try again.');
-  if (/expired|invalid/i.test(msg)) return new SyncError('auth', 'That code is invalid or has expired. Request a new one.');
-  if (/email/i.test(msg) && /valid/i.test(msg)) return new SyncError('auth', 'That doesn’t look like a valid email address.');
-  return new SyncError('server', msg || 'Sign-in failed.');
+  const text = `${e.message ?? ''} ${e.code ?? ''}`;
+  if (e.status === 429 || /rate.?limit/i.test(text)) {
+    return new SyncError('server', 'Too many emails were requested recently. Wait a few minutes — or sign in with your password, which never needs an email.');
+  }
+  if (/invalid login credentials|invalid_credentials/i.test(text)) return new SyncError('auth', 'Wrong email or password.');
+  if (/already registered|user_already_exists|email_exists/i.test(text)) return new SyncError('auth', 'An account with this email already exists. Sign in instead.');
+  if (/weak_password|password should|password is (too|known)/i.test(text)) return new SyncError('auth', `Choose a stronger password (at least ${MIN_PASSWORD} characters).`);
+  if (/same_password|different from the old/i.test(text)) return new SyncError('auth', 'That’s already your password.');
+  if (/email not confirmed|email_not_confirmed/i.test(text)) {
+    return new SyncError('auth', 'This account was never confirmed. Use “Forgot password?” to set a password and sign in.');
+  }
+  if (/signups? not allowed|signup_disabled/i.test(text)) return new SyncError('server', 'New accounts are temporarily disabled.');
+  if (/expired|invalid/i.test(text) && /otp|token|code/i.test(text)) return new SyncError('auth', 'That code is invalid or has expired. Request a new one.');
+  if (/email/i.test(text) && /valid/i.test(text)) return new SyncError('auth', 'That doesn’t look like a valid email address.');
+  return new SyncError('server', e.message || 'Sign-in failed.');
 }
 
 /* ─────────────────────────── runtime binding ─────────────────────────── */

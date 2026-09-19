@@ -82,7 +82,7 @@ LIFE//OS is **local-first**: the game always runs on your device, instantly and 
 
 | | Guest save | Synced account |
 | --- | --- | --- |
-| Account needed | No. Open the app and play | Email + one-time code (no password) |
+| Account needed | No. Open the app and play | Email + password (no confirmation email needed) |
 | Where the save lives | This browser only | Your account in the cloud, cached on each device |
 | Works offline | Yes | Yes. Progress queues and syncs when you're back |
 | Phone + laptop | Separate saves | **The same character** |
@@ -101,7 +101,7 @@ If you sign in on a device that already has a *different* guest character, you c
 ## Architecture
 
 ```
-            IDENTITY (Supabase Auth: email OTP)
+            IDENTITY (Supabase Auth: email + password)
                            │
                      USER · PROFILE
                            │
@@ -220,7 +220,7 @@ Vercel builds on every push to `main`. The production environment needs `VITE_SU
 ### Current limitations
 
 - **Sign-in emails need custom SMTP before anyone else can play.** The project uses Supabase's built-in mailer, which only delivers to members of the Supabase organization and a few messages per hour. That works for the owner syncing their own devices, but other players can't sign in until a custom SMTP provider (such as Resend) is set in Supabase → Authentication → SMTP. The same step unlocks the branded code-first email templates in `supabase/templates/`. Until then, the default email contains a sign-in **link**, which works when opened in the same browser the game runs in.
-- **Sign-in is email-code only.** Google and Apple sign-in plug into the same Supabase Auth, and the rest of the app doesn't change.
+- **Sign-in is email + password.** It never depends on email delivery. Emailed links are only used for “forgot password” and for optional passwordless sign-in, and a link must be opened in the same browser that requested it (on phones, not inside a mail app's own browser). Email confirmation is off, so anyone can register any address. Turn it back on once custom SMTP is configured. Google and Apple sign-in plug into the same Supabase Auth, and the rest of the app doesn't change.
 - **Sync is pull-based** (on focus, on reconnect, every minute while visible), not realtime push. A deed on your phone reaches an open laptop within about a minute, or instantly when you switch back to it.
 - **Accounts have no "new game"** that keeps the account. Delete the account, or keep playing the character.
 - **Unsynced progress on a device whose session expired** stays queued locally until you sign in again on that device. It is never lost, and the status light shows it.
