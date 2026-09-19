@@ -219,7 +219,7 @@ Vercel builds on every push to `main`. The production environment needs `VITE_SU
 
 ### Current limitations
 
-- **Sign-in emails** use Supabase's built-in mailer, which is rate-limited to a few emails per hour per project. That's fine for personal use, but a public launch should configure custom SMTP (for example Resend) in Supabase Auth settings.
+- **Sign-in emails need custom SMTP before anyone else can play.** The project uses Supabase's built-in mailer, which only delivers to members of the Supabase organization and a few messages per hour. That works for the owner syncing their own devices, but other players can't sign in until a custom SMTP provider (such as Resend) is set in Supabase → Authentication → SMTP. The same step unlocks the branded code-first email templates in `supabase/templates/`. Until then, the default email contains a sign-in **link**, which works when opened in the same browser the game runs in.
 - **Sign-in is email-code only.** Google and Apple sign-in plug into the same Supabase Auth, and the rest of the app doesn't change.
 - **Sync is pull-based** (on focus, on reconnect, every minute while visible), not realtime push. A deed on your phone reaches an open laptop within about a minute, or instantly when you switch back to it.
 - **Accounts have no "new game"** that keeps the account. Delete the account, or keep playing the character.
