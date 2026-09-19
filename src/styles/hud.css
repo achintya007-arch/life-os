@@ -310,6 +310,10 @@
   backdrop-filter: blur(8px);
   animation: fade-in 0.2s ease-out;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html.is-modal-open {
+  overflow: hidden;
 }
 .modal__panel {
   width: min(560px, 100%);

@@ -2,6 +2,9 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Glyph } from './Icon';
 
+/** Open modals, so nested ones (System → Link) only release the page when the last closes. */
+let openModals = 0;
+
 export function Modal({
   title,
   kicker,
@@ -28,12 +31,15 @@ export function Modal({
       }
     };
     window.addEventListener('keydown', onKey);
+    // Hold the page still: on iOS a swipe past the end of a modal otherwise scrolls the HQ behind it.
+    if (openModals++ === 0) document.documentElement.classList.add('is-modal-open');
     const panel = panelRef.current;
     const first =
       panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel?.querySelector<HTMLElement>('input, textarea, button');
     first?.focus();
     return () => {
       window.removeEventListener('keydown', onKey);
+      if (--openModals === 0) document.documentElement.classList.remove('is-modal-open');
       previouslyFocused?.focus?.();
     };
   }, []);
