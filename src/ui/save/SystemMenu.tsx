@@ -13,7 +13,15 @@ import { downloadSave } from './download';
 import { ago, describeStatus } from './saveStatus';
 import type { LinkFlowMode } from './LinkFlow';
 
-export function SystemMenu({ onClose, onLink }: { onClose: () => void; onLink: (mode: LinkFlowMode) => void }) {
+export function SystemMenu({
+  onClose,
+  onLink,
+  onTutorial,
+}: {
+  onClose: () => void;
+  onLink: (mode: LinkFlowMode) => void;
+  onTutorial?: () => void;
+}) {
   const runtime = useRuntime();
   const status = useSaveStatus();
   const state = useGameState();
@@ -163,6 +171,18 @@ export function SystemMenu({ onClose, onLink }: { onClose: () => void; onLink: (
               </div>
             </label>
           </form>
+        )}
+
+        {/* ── HOW TO PLAY ── */}
+        {state.character && onTutorial && (
+          <section className="system__section">
+            <div className="field__label mono">HOW TO PLAY</div>
+            <div className="system__row">
+              <button className="btn" onClick={onTutorial}>
+                REPLAY THE TUTORIAL
+              </button>
+            </div>
+          </section>
         )}
 
         {/* ── DATA ── */}

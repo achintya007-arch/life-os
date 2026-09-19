@@ -13,6 +13,7 @@ import './styles/views.css';
 import './styles/celebration.css';
 import './styles/save.css';
 import './styles/progression.css';
+import './styles/tutorial.css';
 import { Runtime } from './app/runtime';
 import { RuntimeProvider } from './app/RuntimeContext';
 import { browserStorage } from './store/keyValue';

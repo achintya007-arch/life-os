@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { sfx } from '../../audio/sfx';
 import { ATTRIBUTE_INFO, TIER_INFO, BOSS_STRIKE_XP } from '../../engine/constants';
 import { toLocalDate } from '../../engine/dates';
@@ -176,6 +177,7 @@ function QuestRow({
 }) {
   const { act } = useCelebration();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const rowRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
@@ -252,31 +254,80 @@ function QuestRow({
         <small>XP</small>
       </div>
       <div className="quest__menu">
-        <button className="icon-btn" aria-label="Quest options" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+        <button
+          ref={menuBtnRef}
+          className="icon-btn"
+          aria-label="Quest options"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
           <Glyph name="more" size={16} />
         </button>
         {menuOpen && (
-          <>
-            <div className="popover-backdrop" onClick={() => setMenuOpen(false)} />
-            <div className="popover mono" role="menu">
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit();
-                }}
-              >
-                EDIT QUEST
-              </button>
-              <button role="menuitem" onClick={retire} title="Priorities change. That's allowed.">
-                RETIRE QUEST
-                <small>no penalty · priorities change</small>
-              </button>
-            </div>
-          </>
+          <FloatingMenu anchor={menuBtnRef.current} onClose={() => setMenuOpen(false)}>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onEdit();
+              }}
+            >
+              EDIT QUEST
+            </button>
+            <button role="menuitem" onClick={retire} title="Priorities change. That's allowed.">
+              RETIRE QUEST
+              <small>no penalty · priorities change</small>
+            </button>
+          </FloatingMenu>
         )}
       </div>
     </li>
+  );
+}
+
+/**
+ * A menu anchored to a button but rendered on <body>, so neighbouring panels
+ * (each an isolated stacking context) can never paint over it. Opens below the
+ * button, or above when there isn't room; closes on scroll, resize or Escape.
+ */
+function FloatingMenu({ anchor, onClose, children }: { anchor: HTMLElement | null; onClose: () => void; children: ReactNode }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  useLayoutEffect(() => {
+    if (!anchor || !menuRef.current) return;
+    const a = anchor.getBoundingClientRect();
+    const m = menuRef.current.getBoundingClientRect();
+    const gap = 4;
+    const below = a.bottom + gap + m.height <= window.innerHeight - 8;
+    const top = below ? a.bottom + gap : Math.max(8, a.top - gap - m.height);
+    const left = Math.min(Math.max(8, a.right - m.width), window.innerWidth - m.width - 8);
+    setPos({ top, left });
+    menuRef.current.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+  }, [anchor]);
+
+  useEffect(() => {
+    const close = () => onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('scroll', close, { passive: true, capture: true });
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close, { capture: true });
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <>
+      <div className="popover-backdrop" onClick={onClose} />
+      <div ref={menuRef} className="popover popover--floating mono" role="menu" style={pos}>
+        {children}
+      </div>
+    </>,
+    document.body,
   );
 }
 

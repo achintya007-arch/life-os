@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Glyph } from './Icon';
 
 export function Modal({
@@ -37,7 +38,9 @@ export function Modal({
     };
   }, []);
 
-  return (
+  // Portaled to <body>: panels are isolated stacking contexts (and the view animates with a
+  // transform), so a modal rendered in place would sit under later panels and the top bar.
+  return createPortal(
     <div className="modal" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal__panel frame ${wide ? 'modal__panel--wide' : ''}`} ref={panelRef} role="dialog" aria-modal="true" aria-label={title}>
         <i className="frame__corner frame__corner--tl" aria-hidden />
@@ -53,6 +56,7 @@ export function Modal({
         </header>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,0 +1,162 @@
+/* ── First-run tutorial ── */
+.tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.tutorial__veil {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.78);
+  animation: tutorial-fade 0.3s ease-out;
+}
+.tutorial__spot {
+  position: fixed;
+  border: 1px solid var(--gold);
+  box-shadow:
+    0 0 0 9999px rgba(4, 5, 8, 0.78),
+    0 0 24px rgba(255, 179, 71, 0.35);
+  pointer-events: none;
+  transition:
+    top 0.35s var(--ease-snap),
+    left 0.35s var(--ease-snap),
+    width 0.35s var(--ease-snap),
+    height 0.35s var(--ease-snap);
+  animation: tutorial-fade 0.3s ease-out;
+}
+.tutorial__spot::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--gold);
+  animation: tutorial-pulse 1.8s ease-out infinite;
+}
+@keyframes tutorial-pulse {
+  from {
+    opacity: 0.8;
+    inset: -1px;
+  }
+  to {
+    opacity: 0;
+    inset: -10px;
+  }
+}
+@keyframes tutorial-fade {
+  from {
+    opacity: 0;
+  }
+}
+.tutorial__card {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px 16px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  animation: tutorial-card-in 0.32s var(--ease-snap);
+}
+@keyframes tutorial-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.tutorial__card--center {
+  top: 50%;
+  left: 50%;
+  width: min(440px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+  animation: tutorial-center-in 0.36s var(--ease-snap);
+}
+@keyframes tutorial-center-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 10px)) scale(0.98);
+  }
+}
+.tutorial__card--sheet {
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+}
+.tutorial__kicker {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+.tutorial__title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.2;
+}
+.tutorial__body {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.tutorial__dots {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+.tutorial__dots i {
+  width: 14px;
+  height: 3px;
+  background: var(--line-mid);
+  transition: background 0.2s, width 0.2s;
+}
+.tutorial__dots i.is-past {
+  background: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.tutorial__dots i.is-on {
+  width: 26px;
+  background: var(--gold);
+}
+.tutorial__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+.tutorial__nav {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.tutorial__skip {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  padding: 8px 0;
+}
+.tutorial__skip:hover {
+  color: var(--text);
+}
+
+@media (max-width: 639px) {
+  .tutorial__title {
+    font-size: 19px;
+  }
+  .tutorial__body {
+    font-size: 14px;
+  }
+}
+@media (pointer: coarse) {
+  .tutorial__skip {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial__spot,
+  .tutorial__spot::after,
+  .tutorial__card {
+    animation: none;
+    transition: none;
+  }
+}

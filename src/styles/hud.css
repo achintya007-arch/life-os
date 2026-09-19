@@ -519,3 +519,13 @@
   70% { opacity: 1; }
   100% { opacity: 0; transform: translateY(-10px); }
 }
+
+/* Menus rendered on <body> (see FloatingMenu): above panels, below modals. */
+.popover-backdrop {
+  z-index: 95;
+}
+.popover--floating {
+  position: fixed;
+  right: auto;
+  z-index: 96;
+}

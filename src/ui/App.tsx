@@ -13,6 +13,7 @@ import { SystemMenu } from './save/SystemMenu';
 import { Chronicle } from './views/Chronicle';
 import { Genesis } from './views/Genesis';
 import { Headquarters } from './views/Headquarters';
+import { markTutorialSeen, Tutorial, tutorialSeen } from './tutorial/Tutorial';
 import { Vault } from './views/Vault';
 
 type View = 'character' | 'vault' | 'chronicle';
@@ -33,7 +34,25 @@ export function App() {
   const now = useNow();
   const [view, setView] = useState<View>(readHash);
   const [systemOpen, setSystemOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const { overlayOpen } = useCelebration();
   useSyncNotices();
+
+  // New players get the tour once, as soon as the headquarters has settled.
+  const characterId = state.character?.createdAt ?? null;
+  const fresh = state.deeds.length === 0;
+  useEffect(() => {
+    if (!characterId || !fresh || view !== 'character' || tutorialOpen || overlayOpen || systemOpen) return;
+    if (tutorialSeen(characterId)) return;
+    const t = window.setTimeout(() => setTutorialOpen(true), 1200);
+    return () => window.clearTimeout(t);
+  }, [characterId, fresh, view, tutorialOpen, overlayOpen, systemOpen]);
+
+  const endTutorial = () => {
+    if (characterId) markTutorialSeen(characterId);
+    setTutorialOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const onHash = () => setView(readHash());
@@ -54,7 +73,17 @@ export function App() {
 
   const overlays = (
     <>
-      {systemOpen && <SystemMenu onClose={() => setSystemOpen(false)} onLink={openLink} />}
+      {systemOpen && (
+        <SystemMenu
+          onClose={() => setSystemOpen(false)}
+          onLink={openLink}
+          onTutorial={() => {
+            setSystemOpen(false);
+            navigate('character');
+            window.setTimeout(() => setTutorialOpen(true), 350);
+          }}
+        />
+      )}
     </>
   );
 
@@ -79,6 +108,7 @@ export function App() {
         {view === 'chronicle' && <Chronicle state={state} now={now} />}
       </div>
       {overlays}
+      {tutorialOpen && view === 'character' && <Tutorial name={state.character.name} onDone={endTutorial} />}
     </div>
   );
 }
