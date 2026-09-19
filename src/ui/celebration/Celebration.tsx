@@ -167,6 +167,8 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
             : null;
       const chapterCampaign = !campaign && deed.kind === 'chapter' && deed.campaignId ? state.campaigns[deed.campaignId] : undefined;
       const bigDeed = primary === 'boss' || primary === 'campaign';
+      const sweep = effects.find((e): e is Extract<Effect, { kind: 'dailySweep' }> => e.kind === 'dailySweep');
+      const goalsMet = effects.filter((e): e is Extract<Effect, { kind: 'weeklyGoalMet' }> => e.kind === 'weeklyGoalMet');
       const r = reactTo(effects, state);
 
       // 1 — the hit: a number where your finger is. Big scenes bring their own sound.
@@ -215,8 +217,11 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 5 — or a banner: campaign progress, or an epic achievement on its own.
-      if (chapterCampaign) {
+      // 5 — or a banner: a cleared daily board, campaign progress, or an epic achievement on its own.
+      if (sweep) {
+        const board = state.dailies[sweep.date];
+        enqueueBanner({ kind: 'sweep', key: nextId++, contracts: board?.contracts ?? [], xp: sweep.xp, honors: epic }, 450);
+      } else if (chapterCampaign) {
         const chapterIndex = chapterCampaign.chapters.findIndex((c) => c.id === deed.refId);
         enqueueBanner({ kind: 'chapter', key: nextId++, campaign: chapterCampaign, chapterIndex, xp: deed.xp, honors: epic }, 150);
       } else if (epic.length > 0) {
@@ -232,9 +237,16 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
         });
         stagger += 350;
       }
+      for (const g of goalsMet) {
+        later(stagger, () => {
+          sfx.play('rankUp');
+          pushToast({ kind: 'goal', label: g.label, bonus: g.bonus }, 5000);
+        });
+        stagger += 400;
+      }
       if (minor.length > 0) {
         later(stagger, () => {
-          if (!chapterCampaign && epic.length === 0) sfx.play('achievement');
+          if (!chapterCampaign && !sweep && epic.length === 0) sfx.play('achievement');
           pushToast({ kind: 'achievement', honors: minor }, 7000);
         });
       }

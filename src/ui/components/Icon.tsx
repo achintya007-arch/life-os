@@ -1,3 +1,4 @@
+import type { ClassId } from '../../engine/classes';
 import type { Attribute, Tier } from '../../engine/constants';
 
 type IconProps = { size?: number; className?: string; title?: string };
@@ -57,6 +58,54 @@ export function AttributeIcon({ attribute, ...p }: IconProps & { attribute: Attr
       return (
         <Svg {...p}>
           <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
+        </Svg>
+      );
+  }
+}
+
+/* Class sigils — one silhouette per path. */
+export function ClassIcon({ classId, ...p }: IconProps & { classId: ClassId }) {
+  switch (classId) {
+    case 'brawler': // gauntlet
+      return (
+        <Svg {...p}>
+          <path d="M6 11V7.5a1.5 1.5 0 0 1 3 0V11M9 10V6.5a1.5 1.5 0 0 1 3 0V10M12 10V7a1.5 1.5 0 0 1 3 0v3M15 10.5V9a1.5 1.5 0 0 1 3 0v5a6 6 0 0 1-6 6h-1a5 5 0 0 1-5-5v-4" />
+        </Svg>
+      );
+    case 'archer': // bow and arrow
+      return (
+        <Svg {...p}>
+          <path d="M6 3c7 3 7 15 0 18" />
+          <path d="M6 3v18" strokeDasharray="1.5 2" />
+          <path d="M3 12h17M17 9l3 3-3 3" />
+        </Svg>
+      );
+    case 'mage': // six-point rune
+      return (
+        <Svg {...p}>
+          <path d="M12 2 20.5 17H3.5Z" />
+          <path d="M12 22 3.5 7h17Z" />
+        </Svg>
+      );
+    case 'bard': // lute / note
+      return (
+        <Svg {...p}>
+          <circle cx="8" cy="17" r="3.5" />
+          <path d="M11.5 17V4l7 2.5V10l-7-2.5" />
+        </Svg>
+      );
+    case 'monk': // ensō
+      return (
+        <Svg {...p}>
+          <path d="M18.5 7.5A8 8 0 1 0 20 13" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        </Svg>
+      );
+    case 'wanderer': // compass
+      return (
+        <Svg {...p}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 5.5 14 12l-2 6.5L10 12Z" fill="currentColor" fillOpacity={0.25} />
         </Svg>
       );
   }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { sfx } from '../../audio/sfx';
+import { CLASSES, type ClassId } from '../../engine/classes';
 import { LIMITS } from '../../engine/constants';
+import { ClassGrid, classSummary } from '../hq/ClassPicker';
 import { useCelebration } from '../celebration/Celebration';
 import { submitOnEnter } from '../components/submitOnEnter';
 
@@ -24,6 +26,8 @@ export function Genesis({
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [igniting, setIgniting] = useState(false);
+  const [phase, setPhase] = useState<'name' | 'class'>('name');
+  const [classId, setClassId] = useState<ClassId | null>(null);
   const ready = step >= BOOT.length;
 
   useEffect(() => {
@@ -32,12 +36,22 @@ export function Genesis({
     return () => window.clearTimeout(t);
   }, [step, ready]);
 
-  const begin = (e: React.FormEvent) => {
+  const toClass = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || igniting) return;
+    if (!name.trim()) return;
+    sfx.play('accept');
+    setPhase('class');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const begin = (chosen: ClassId | null) => {
+    if (igniting) return;
     setIgniting(true);
     sfx.play('levelUp');
-    window.setTimeout(() => act({ type: 'createCharacter', name }, { silent: true }), 900);
+    window.setTimeout(() => {
+      const r = act({ type: 'createCharacter', name }, { silent: true });
+      if (r.ok && chosen) act({ type: 'chooseClass', classId: chosen }, { silent: true });
+    }, 900);
   };
 
   return (
@@ -58,8 +72,34 @@ export function Genesis({
           ))}
         </ol>
 
-        {ready && (
-          <form className="genesis__form" onSubmit={begin} onKeyDown={submitOnEnter}>
+        {ready && phase === 'class' && (
+          <div className="genesis__form genesis__class">
+            <div className="genesis__kicker mono">CHOOSE YOUR CLASS</div>
+            <h1 className="genesis__headline genesis__headline--small">
+              How does <span className="genesis__accent">{name.trim()}</span> grow?
+            </h1>
+            <p className="genesis__copy">
+              Your class boosts the attributes you care about most and shapes your daily contracts. It never locks you out of anything — you
+              can change it later.
+            </p>
+            <ClassGrid selected={classId} onSelect={setClassId} />
+            {classId && <p className="genesis__copy genesis__class-summary">{classSummary(classId)}</p>}
+            <div className="genesis__input-row genesis__class-actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setPhase('name')} disabled={igniting}>
+                BACK
+              </button>
+              <button type="button" className="btn btn--gold btn--lg" disabled={!classId || igniting} onClick={() => begin(classId)}>
+                {classId ? `BEGIN AS ${CLASSES[classId].name.toUpperCase()}` : 'PICK A CLASS'}
+              </button>
+            </div>
+            <button type="button" className="genesis__signin mono" onClick={() => begin(null)} disabled={igniting}>
+              CAN’T DECIDE? <span className="gold">START WITHOUT A CLASS →</span>
+            </button>
+          </div>
+        )}
+
+        {ready && phase === 'name' && (
+          <form className="genesis__form" onSubmit={toClass} onKeyDown={submitOnEnter}>
             <div className="genesis__kicker mono">NEW CHARACTER</div>
             <h1 className="genesis__headline">
               Your life is the game.
@@ -86,7 +126,7 @@ export function Genesis({
                 spellCheck={false}
               />
               <button className="btn btn--gold btn--lg" disabled={!name.trim() || igniting}>
-                BEGIN
+                NEXT
               </button>
             </div>
             {account ? (

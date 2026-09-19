@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { sfx } from '../../audio/sfx';
 import type { AchievementDef } from '../../engine/achievements';
 import type { Attribute } from '../../engine/constants';
-import type { Campaign, Deed } from '../../engine/types';
+import type { Campaign, Contract, Deed } from '../../engine/types';
 import { CountUp } from '../components/CountUp';
 import { AttributeIcon, Glyph, TierIcon } from '../components/Icon';
 
@@ -45,7 +45,8 @@ export type BannerItem =
       xp: number;
       honors: Honor[];
     }
-  | { kind: 'honor'; key: number; honors: Honor[] };
+  | { kind: 'honor'; key: number; honors: Honor[] }
+  | { kind: 'sweep'; key: number; contracts: Contract[]; xp: number; honors: Honor[] };
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 const CEREMONY_SOUND = { campaign: 'campaign', boss: 'boss', levelUp: 'levelUp' } as const;
@@ -265,7 +266,7 @@ function Spoils({ item }: { item: CeremonyItem }) {
 
 /* ═══════════ Banners: a moment that never blocks input ═══════════ */
 
-export const BANNER_MS = { chapter: 3400, honor: 4600 } as const;
+export const BANNER_MS = { chapter: 3400, honor: 4600, sweep: 3800 } as const;
 
 export function Banner({ item, onDone }: { item: BannerItem; onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
@@ -313,6 +314,34 @@ export function Banner({ item, onDone }: { item: BannerItem; onDone: () => void 
               </>
             )}
           </div>
+          {item.honors.map((h) => (
+            <div key={h.achievement.id} className={`banner__honor mono rarity--${h.achievement.rarity}`}>
+              ◆ {h.achievement.name}
+              {h.titleName ? ` · TITLE: ${h.titleName}` : ''}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (item.kind === 'sweep') {
+    return (
+      <div className={`banner banner--sweep ${leaving ? 'is-leaving' : ''}`} role="status" onClick={() => setLeaving(true)}>
+        <div className="banner__sweep" aria-hidden />
+        <div className="banner__medal" aria-hidden>
+          <Glyph name="check" size={26} />
+        </div>
+        <div className="banner__body">
+          <div className="banner__kicker mono">DAILY BOARD CLEARED · +{item.xp} XP</div>
+          <div className="banner__title">Clean sweep.</div>
+          <ul className="banner__contracts">
+            {item.contracts.map((c) => (
+              <li key={c.id} className="mono">
+                ✓ {c.title}
+              </li>
+            ))}
+          </ul>
           {item.honors.map((h) => (
             <div key={h.achievement.id} className={`banner__honor mono rarity--${h.achievement.rarity}`}>
               ◆ {h.achievement.name}

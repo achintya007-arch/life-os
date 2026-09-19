@@ -97,6 +97,14 @@ export function findConflicts(log: readonly GameEvent[], ours: readonly string[]
     if (!mine.has(e.id) || undone.has(e.id) || counted.has(e.id)) continue;
     if (e.type === 'quest.completed') {
       conflicts.push({ eventId: e.id, title: questTitle(state, e.questId), reason: describeQuestConflict(state, e.questId) });
+    } else if (e.type === 'daily.completed') {
+      const board = state.dailies[e.localDate];
+      const contract = board?.contracts.find((c) => c.id === e.contractId);
+      conflicts.push({
+        eventId: e.id,
+        title: contract?.title ?? 'A daily contract',
+        reason: contract ? 'already fulfilled on another device' : 'from a board another device replaced — today’s board was issued there first',
+      });
     } else if (e.type === 'campaign.chapterCleared') {
       const c = state.campaigns[e.campaignId];
       const ch = c?.chapters.find((x) => x.id === e.chapterId);

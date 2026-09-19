@@ -4,6 +4,7 @@ import { AttributeIcon, Glyph, TierIcon } from '../components/Icon';
 import type { Honor } from './Overlays';
 
 export type Toast =
+  | { id: number; kind: 'goal'; label: string; bonus: number }
   | { id: number; kind: 'deed'; deed: Deed; restedBonus: number; headline: string; ttl: number }
   | { id: number; kind: 'achievement'; honors: Honor[] }
   | { id: number; kind: 'rank'; attribute: Attribute; from: number; to: number }
@@ -29,6 +30,20 @@ export function Toasts({
 
 function ToastView({ toast, onDismiss, onUndo }: { toast: Toast; onDismiss: (id: number) => void; onUndo: (deedId: string) => void }) {
   switch (toast.kind) {
+    case 'goal':
+      return (
+        <div className="toast toast--goal" onClick={() => onDismiss(toast.id)}>
+          <div className="toast__icon toast__goal-icon mono">◎</div>
+          <div className="toast__body">
+            <div className="toast__kicker mono">WEEKLY GOAL MET</div>
+            <div className="toast__title">{toast.label}</div>
+          </div>
+          <div className="toast__xp mono">
+            +{toast.bonus}
+            <small>XP</small>
+          </div>
+        </div>
+      );
     case 'deed': {
       const { deed } = toast;
       return (

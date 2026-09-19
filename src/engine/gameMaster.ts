@@ -184,6 +184,15 @@ export function briefing(state: GameState, now: Date): Briefing {
     lines.push(pick(['The board is set. Your move.', 'Quests await. None of them are going to do themselves. I checked.'], seed));
   }
 
+  const board = state.dailies[today];
+  if (board && board.contracts.length) {
+    const open = board.contracts.filter((c) => !board.completed.includes(c.id));
+    if (open.length === 0) lines.push('The board is clean. Everything else today is pure bonus.');
+    else if (open.length === board.contracts.length)
+      lines.push(fill(pick(['{n} contracts on the board. {xp} XP waiting.', 'Today’s board is posted: {n} contracts, {xp} XP.'], seed), { n: open.length, xp: board.budget }));
+    else lines.push(fill('{n} {c} left on today’s board.', { n: open.length, c: open.length === 1 ? 'contract' : 'contracts' }));
+  }
+
   if (lvl.progress >= 0.75) {
     lines.push(`Level ${lvl.level + 1} is ${toNext} XP away. One good quest should do it.`);
   }
@@ -245,15 +254,24 @@ export function reactTo(effects: readonly Effect[], state: GameState): Reaction 
   const seed = deed.id;
 
   const campaignDone = effects.some((e) => e.kind === 'campaignComplete');
+  const sweep = effects.find((e): e is Extract<Effect, { kind: 'dailySweep' }> => e.kind === 'dailySweep');
+  const goalMet = effects.find((e): e is Extract<Effect, { kind: 'weeklyGoalMet' }> => e.kind === 'weeklyGoalMet');
+  const strike = deed.strike && deed.strike.n < deed.strike.of ? deed.strike : null;
   const headline = campaignDone
     ? 'CAMPAIGN COMPLETE'
-    : deed.kind === 'chapter'
-      ? 'CHAPTER CLEARED'
-      : deed.tier === 'boss'
-        ? 'BOSS DEFEATED'
-        : deed.tier === 'challenge'
-          ? 'CHALLENGE CLEARED'
-          : 'QUEST COMPLETE';
+    : sweep
+      ? 'BOARD CLEARED'
+      : deed.kind === 'contract'
+        ? 'CONTRACT FULFILLED'
+        : strike
+          ? `STRIKE ${strike.n}/${strike.of}`
+          : deed.kind === 'chapter'
+            ? 'CHAPTER CLEARED'
+            : deed.tier === 'boss'
+              ? 'BOSS DEFEATED'
+              : deed.tier === 'challenge'
+                ? 'CHALLENGE CLEARED'
+                : 'QUEST COMPLETE';
 
   const levelUp = effects.find((e): e is Extract<Effect, { kind: 'levelUp' }> => e.kind === 'levelUp');
   const ach = effects.find((e): e is Extract<Effect, { kind: 'achievement' }> => e.kind === 'achievement');
@@ -263,6 +281,31 @@ export function reactTo(effects: readonly Effect[], state: GameState): Reaction 
     line = 'First blood. Everyone remembers their first quest. I certainly will — I’m writing it down.';
   } else if (campaignDone) {
     line = 'A whole campaign. Start to finish. Look back at chapter one — that person had no idea.';
+  } else if (sweep) {
+    line = fill(
+      pick(
+        [
+          'The whole board. {xp} XP, every point of it earned. Tomorrow I’m writing harder contracts.',
+          'Clean sweep. I issued those to be difficult. Rude of you, honestly.',
+          'Board cleared. Anything else today is pure bonus.',
+        ],
+        seed,
+      ),
+      { xp: sweep.xp },
+    );
+  } else if (goalMet) {
+    line = `Weekly goal met: “${goalMet.label}”. +${goalMet.bonus} XP. The week is yours.`;
+  } else if (strike) {
+    const left = strike.of - strike.n;
+    line = fill(pick(['The boss staggers. {left} {hits} left.', 'Direct hit. {left} {hits} to go.', 'It felt that. {left} more and it falls.'], seed), {
+      left,
+      hits: left === 1 ? 'hit' : 'hits',
+    });
+  } else if (deed.kind === 'contract') {
+    const challenge = /^Break the silence/.test(deed.title);
+    line = challenge
+      ? 'The door is open. That was the hard part — and it’s behind you now.'
+      : pick(['Contract fulfilled. One off the board.', 'Signed, sealed, done.', 'The system is satisfied. That rarely happens.'], seed);
   } else if (restedBonus > 0) {
     line = pick(['You came back. That is the whole trick, and you just did it.', 'Welcome back. The XP missed you.'], seed);
   } else if (deed.tier === 'boss' || deed.kind === 'chapter') {

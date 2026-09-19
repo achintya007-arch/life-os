@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sfx } from '../../audio/sfx';
-import { ATTRIBUTE_INFO, TIER_INFO } from '../../engine/constants';
+import { ATTRIBUTE_INFO, TIER_INFO, BOSS_STRIKE_XP } from '../../engine/constants';
 import { toLocalDate } from '../../engine/dates';
 import type { GameState, Quest } from '../../engine/types';
 import { useCelebration } from '../celebration/Celebration';
@@ -182,9 +182,15 @@ function QuestRow({
     if (highlight) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlight]);
 
+  const [hit, setHit] = useState(0);
   const complete = (origin: Element | null) => {
     const r = act({ type: 'completeQuest', questId: quest.id }, { origin });
-    if (r.ok) onCleared();
+    if (!r.ok) return;
+    const deed = r.effects.find((e) => e.kind === 'deed');
+    const strike = deed?.kind === 'deed' ? deed.deed.strike : undefined;
+    // A boss that survives the strike stays in the log — it flinches instead of folding away.
+    if (strike && strike.n < strike.of) setHit((n) => n + 1);
+    else onCleared();
   };
 
   const retire = () => {
@@ -201,6 +207,7 @@ function QuestRow({
     clearing && 'is-clearing',
     spotlight && 'is-spotlight',
     highlight && 'is-highlight',
+    hit > 0 && `is-hit is-hit--${hit % 2}`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -229,9 +236,19 @@ function QuestRow({
           {done && <span className="quest__done">DONE TODAY<span className="quest__done-extra"> · RESETS TOMORROW</span></span>}
         </div>
         {quest.notes && <div className="quest__notes">{quest.notes}</div>}
+        {(quest.hits ?? 1) > 1 && quest.cadence === 'once' && (
+          <div className="boss-bar" aria-label={`Boss HP ${Math.max(0, (quest.hits ?? 1) - quest.timesCompleted)} of ${quest.hits}`}>
+            {Array.from({ length: quest.hits ?? 1 }, (_, i) => (
+              <i key={i} className={i < quest.timesCompleted ? 'is-hit' : ''} />
+            ))}
+            <span className="boss-bar__label mono">
+              HP {Math.max(0, (quest.hits ?? 1) - quest.timesCompleted)}/{quest.hits}
+            </span>
+          </div>
+        )}
       </div>
       <div className="quest__xp mono">
-        +{TIER_INFO[quest.tier].xp}
+        +{(quest.hits ?? 1) > 1 && quest.cadence === 'once' && quest.timesCompleted + 1 < (quest.hits ?? 1) ? BOSS_STRIKE_XP : TIER_INFO[quest.tier].xp}
         <small>XP</small>
       </div>
       <div className="quest__menu">

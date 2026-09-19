@@ -7,7 +7,9 @@ import { displayTitle } from '../../engine/titles';
 import type { GameState } from '../../engine/types';
 import { CountUp } from '../components/CountUp';
 import { Frame } from '../components/Frame';
-import { AttributeIcon } from '../components/Icon';
+import { CLASSES } from '../../engine/classes';
+import { AttributeIcon, ClassIcon } from '../components/Icon';
+import { ClassModal } from './ClassPicker';
 import { XpBar } from '../components/XpBar';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -26,9 +28,12 @@ export function CharacterHero({ state, now, onOpenVault }: { state: GameState; n
   const rested = state.lastActiveDate !== null && daysBetween(state.lastActiveDate, today) >= RESTED_GAP_DAYS;
   const xpToday = state.transactions.reduce((sum, t) => (t.localDate === today ? sum + t.amount : sum), 0);
   const deedsToday = state.deeds.filter((d) => d.localDate === today).length;
+  const [classOpen, setClassOpen] = useState(false);
+  const classId = state.character?.classId ?? null;
 
   return (
     <Frame className="hero" as="section" label="CHARACTER FILE" index="01">
+      {classOpen && <ClassModal onClose={() => setClassOpen(false)} />}
       <div className="hero__identity">
         <div className="level-badge level-badge--hero" key={info.level}>
           <span className="level-badge__label mono">LVL</span>
@@ -36,9 +41,25 @@ export function CharacterHero({ state, now, onOpenVault }: { state: GameState; n
         </div>
         <div className="hero__who">
           <h1 className="hero__name">{state.character?.name}</h1>
-          <button className="sheet__title" onClick={onOpenVault} title="Change title">
-            {title.name}
-          </button>
+          <div className="hero__tags">
+            {classId ? (
+              <button
+                className="class-badge"
+                style={{ '--accent': CLASSES[classId].primary ? `var(--attr-${CLASSES[classId].primary})` : 'var(--gold)' } as React.CSSProperties}
+                onClick={() => setClassOpen(true)}
+                title="Your class — tap to change"
+              >
+                <ClassIcon classId={classId} size={14} /> {CLASSES[classId].name.toUpperCase()}
+              </button>
+            ) : (
+              <button className="class-badge class-badge--empty" onClick={() => setClassOpen(true)}>
+                ◇ CHOOSE YOUR CLASS
+              </button>
+            )}
+            <button className="sheet__title" onClick={onOpenVault} title="Change title">
+              {title.name}
+            </button>
+          </div>
           <div className="hero__lifetime mono dim">
             LIFETIME <CountUp to={state.totalXp} /> XP
           </div>

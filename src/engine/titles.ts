@@ -10,7 +10,7 @@ export interface TitleDef {
 
 const LEVEL_TITLES: [number, string, string][] = [
   [1, 'unwritten', 'The Unwritten'],
-  [2, 'wanderer', 'Wanderer'],
+  [2, 'wanderer', 'Wayfarer'], // id kept for saves that equipped it; renamed so it doesn't clash with the Wanderer class
   [4, 'pathfinder', 'Pathfinder'],
   [6, 'adventurer', 'Adventurer'],
   [9, 'veteran', 'Veteran'],

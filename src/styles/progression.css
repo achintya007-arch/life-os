@@ -1,0 +1,544 @@
+/* ═══════════════════════ Classes, contracts, weekly goals, boss HP ═══════════════════════ */
+
+/* ── Class cards ── */
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.class-card {
+  --accent: var(--gold);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 14px 12px;
+  text-align: left;
+  border: 1px solid var(--line-mid);
+  background: rgba(0, 0, 0, 0.28);
+  transition: border-color 0.18s, background 0.18s, transform 0.18s var(--ease-out);
+}
+.class-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: translateY(-2px);
+}
+.class-card.is-selected {
+  border-color: var(--accent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(0, 0, 0, 0.3) 70%);
+  box-shadow: 0 0 26px -10px var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.class-card__sigil {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+}
+.class-card__sigil::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  transform: rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: all 0.25s var(--ease-out);
+}
+.class-card.is-selected .class-card__sigil::before {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 18px -4px var(--accent);
+  transform: rotate(135deg);
+}
+.class-card__sigil svg {
+  position: relative;
+}
+.class-card__name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.class-card__tagline {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.class-card__bonus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+.class-card__bonus span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.class-card__plays {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.class-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.class-modal__summary,
+.genesis__class-summary {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 2px solid var(--gold);
+  background: rgba(255, 179, 71, 0.05);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Genesis class step */
+.genesis__headline--small {
+  font-size: clamp(28px, 5vw, 40px);
+}
+.genesis__class {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.genesis__class .genesis__copy {
+  margin: 0;
+}
+.genesis__class-actions {
+  justify-content: flex-end;
+}
+
+/* Class badge in the character header */
+.hero__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+.hero__tags .sheet__title {
+  margin-top: 0;
+}
+.class-badge {
+  --accent: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  transition: background 0.15s, border-color 0.15s;
+}
+.class-badge:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.class-badge--empty {
+  color: var(--gold);
+  border-style: dashed;
+  animation: rested-glow 3s ease-in-out infinite;
+}
+
+/* ── Daily contracts ── */
+.contracts::before {
+  background:
+    radial-gradient(600px 140px at 100% 0%, rgba(255, 179, 71, 0.07), transparent 70%),
+    linear-gradient(180deg, rgba(22, 20, 14, 0.8), rgba(10, 12, 19, 0.86));
+  border-color: rgba(255, 179, 71, 0.22);
+}
+.contracts .frame__label {
+  color: var(--gold);
+}
+.contracts__meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.contracts__clock {
+  margin-left: 12px;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+.contracts__posting {
+  margin: 8px 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+.contracts__bar {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin-bottom: 6px;
+}
+.contracts__bar span {
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 0.5s var(--ease-out), box-shadow 0.5s;
+}
+.contracts__bar span.is-done {
+  background: var(--gold);
+  box-shadow: 0 0 10px -2px var(--gold-glow);
+}
+.contracts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.contract {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 4px 13px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.contract::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+.contract--challenge {
+  background: linear-gradient(90deg, rgba(185, 162, 255, 0.07), transparent 70%);
+}
+.contract--challenge::before {
+  background: var(--gm);
+  opacity: 1;
+}
+.contract.is-done {
+  opacity: 0.55;
+}
+.contract.is-done .contract__title {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--gold) 60%, transparent);
+}
+.contract__main {
+  min-width: 0;
+}
+.contract__kind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+}
+.contract__tag {
+  padding: 2px 6px;
+  color: var(--bg);
+  background: var(--accent);
+  font-weight: 600;
+}
+.contract--challenge .contract__tag {
+  background: var(--gm);
+}
+.contract__attr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+}
+.contract__title {
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.contract__detail {
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.contract__goto {
+  margin-top: 6px;
+  padding: 4px 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--gm);
+}
+.contract__goto:hover {
+  color: var(--text);
+}
+.contract__xp {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.contract__xp small {
+  margin-left: 3px;
+  font-size: 9.5px;
+  color: var(--gold-deep);
+}
+.contracts__foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+.contracts.is-swept::before {
+  border-color: rgba(255, 179, 71, 0.45);
+  box-shadow: inset 0 0 40px -20px var(--gold);
+}
+
+/* ── Weekly goals ── */
+.goals__empty p {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.goals__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.goal {
+  --accent: var(--gold);
+}
+.goal__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+.goal__label {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.goal__count {
+  color: var(--accent);
+  font-weight: 600;
+}
+.goal__pips {
+  display: flex;
+  gap: 4px;
+  margin: 7px 0 5px;
+}
+.goal__pips i {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  transition: background 0.4s var(--ease-out);
+}
+.goal__pips i.is-on {
+  background: var(--accent);
+  box-shadow: 0 0 8px -2px var(--accent);
+}
+.goal.is-met .goal__pips i {
+  background: var(--gold);
+}
+.goal__foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+}
+.goal__remove {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+.goal__remove:hover {
+  color: var(--text);
+}
+.goals__foot {
+  margin: 14px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+}
+.goal-target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.goal-target__n {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+  border: 1px solid var(--line-mid);
+  color: var(--text-dim);
+}
+.goal-target__n.is-selected {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(255, 179, 71, 0.08);
+}
+select.field__input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%), linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+select.field__input option,
+select.field__input optgroup {
+  background: var(--panel-solid);
+  color: var(--text);
+}
+
+/* ── Boss HP ── */
+.boss-hp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.boss-hp__pip {
+  width: 26px;
+  height: 26px;
+  transform: rotate(45deg) scale(0.72);
+  border: 1px solid rgba(255, 93, 108, 0.4);
+  transition: all 0.15s;
+}
+.boss-hp__pip.is-on {
+  background: var(--danger);
+  border-color: var(--danger);
+  box-shadow: 0 0 10px -2px var(--danger);
+}
+.boss-hp__label {
+  margin-left: 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+.boss-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+}
+.boss-bar i {
+  flex: 1;
+  max-width: 34px;
+  height: 6px;
+  background: var(--danger);
+  box-shadow: 0 0 8px -2px var(--danger);
+  transition: background 0.4s, box-shadow 0.4s;
+}
+.boss-bar i.is-hit {
+  background: rgba(255, 93, 108, 0.15);
+  box-shadow: none;
+}
+.boss-bar__label {
+  margin-left: 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--danger);
+}
+.quest.is-hit--0,
+.quest.is-hit--1 {
+  animation: boss-flinch 0.45s var(--ease-out);
+}
+.quest.is-hit--1 {
+  animation-name: boss-flinch-b;
+}
+@keyframes boss-flinch {
+  0% { background: rgba(255, 93, 108, 0.22); transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  100% { background: transparent; transform: none; }
+}
+@keyframes boss-flinch-b {
+  0% { background: rgba(255, 93, 108, 0.22); transform: translateX(0); }
+  20% { transform: translateX(5px); }
+  40% { transform: translateX(-4px); }
+  60% { transform: translateX(2px); }
+  100% { background: transparent; transform: none; }
+}
+
+/* ── Rewards ── */
+.banner--sweep {
+  --accent: var(--gold);
+  --rarity: var(--gold);
+}
+.banner__contracts {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.banner__contracts li {
+  padding: 1px 0;
+  overflow-wrap: anywhere;
+}
+.toast--goal {
+  --accent: var(--gold);
+}
+.toast__goal-icon {
+  font-size: 20px;
+  color: var(--gold);
+}
+
+@media (max-width: 860px) {
+  .class-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .class-card {
+    padding: 12px 11px 10px;
+  }
+  .class-card__name {
+    font-size: 16px;
+  }
+  .contract {
+    grid-template-columns: auto 1fr;
+  }
+  .contract__xp {
+    grid-column: 2;
+    justify-self: start;
+    font-size: 13px;
+  }
+}
+@media (max-width: 330px) {
+  .class-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 420px) {
+  .class-card__plays {
+    display: none;
+  }
+  .class-card__tagline {
+    font-size: 12px;
+  }
+}
+@media (pointer: coarse) {
+  .class-badge {
+    height: 36px;
+  }
+  .goal__remove,
+  .contract__goto {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}

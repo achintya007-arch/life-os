@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRuntime } from '../../app/RuntimeContext';
+import { useStore } from '../../store/GameContext';
+import { DailyContracts } from '../hq/DailyContracts';
+import { WeeklyGoals } from '../hq/WeeklyGoals';
 import { findNeglectedQuest } from '../../engine/gameMaster';
 import { toLocalDate } from '../../engine/dates';
 import type { GameState, Quest } from '../../engine/types';
@@ -17,6 +21,25 @@ export function Headquarters({ state, now, onNavigate }: { state: GameState; now
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const today = toLocalDate(now);
   const spotlightId = useMemo(() => findNeglectedQuest(state, today)?.id ?? null, [state, today]);
+  const runtime = useRuntime();
+  const store = useStore();
+
+  // Post today's contract board. Signed-in devices first check the cloud (briefly),
+  // so a board already issued on another device is used instead of a new one.
+  const hasBoard = !!state.dailies[today];
+  useEffect(() => {
+    if (hasBoard) return;
+    let cancelled = false;
+    void (async () => {
+      if (runtime.session) {
+        await Promise.race([runtime.sync().catch(() => null), new Promise((r) => window.setTimeout(r, 4000))]);
+      }
+      if (!cancelled && !store.getState().dailies[today]) store.dispatch({ type: 'issueDaily' });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [today, hasBoard, runtime, store]);
 
   // "N" forges a new quest from anywhere on this screen.
   useEffect(() => {
@@ -58,6 +81,7 @@ export function Headquarters({ state, now, onNavigate }: { state: GameState; now
     <main className="hq">
       <CharacterHero state={state} now={now} onOpenVault={() => onNavigate('vault')} />
       <div className="hq__col hq__col--main">
+        <DailyContracts state={state} now={now} onFocusQuest={focusQuest} />
         <QuestLog
           state={state}
           now={now}
@@ -69,6 +93,7 @@ export function Headquarters({ state, now, onNavigate }: { state: GameState; now
       </div>
       <div className="hq__col hq__col--rail">
         <GameMasterPanel state={state} now={now} onFocusQuest={focusQuest} />
+        <WeeklyGoals state={state} now={now} />
         <CampaignPanel state={state} />
         <AttributePanel state={state} />
         <TrophyPanel state={state} onOpenVault={() => onNavigate('vault')} />

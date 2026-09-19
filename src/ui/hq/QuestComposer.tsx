@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ATTRIBUTES, ATTRIBUTE_INFO, LIMITS, TIERS, TIER_INFO, type Attribute, type Cadence, type Tier } from '../../engine/constants';
+import { ATTRIBUTES, ATTRIBUTE_INFO, BOSS_MAX_HITS, BOSS_STRIKE_XP, LIMITS, TIERS, TIER_INFO, type Attribute, type Cadence, type Tier } from '../../engine/constants';
 import { inferAttribute, inferTier } from '../../engine/infer';
 import type { Quest, QuestDraft } from '../../engine/types';
 import { useCelebration } from '../celebration/Celebration';
@@ -15,6 +15,8 @@ export function QuestComposer({ quest, onClose }: { quest?: Quest; onClose: () =
   const [tier, setTier] = useState<Tier>(quest?.tier ?? 'standard');
   const [attribute, setAttribute] = useState<Attribute>(quest?.attribute ?? 'INT');
   const [cadence, setCadence] = useState<Cadence>(quest?.cadence ?? 'once');
+  const [hits, setHits] = useState<number>(quest?.hits ?? 1);
+  const isBoss = tier === 'boss' && cadence === 'once';
   // Auto-suggest until the player makes a choice themselves.
   const [attrTouched, setAttrTouched] = useState(editing);
   const [tierTouched, setTierTouched] = useState(editing);
@@ -31,7 +33,7 @@ export function QuestComposer({ quest, onClose }: { quest?: Quest; onClose: () =
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const draft: QuestDraft = { title, notes, tier, attribute, cadence };
+    const draft: QuestDraft = { title, notes, tier, attribute, cadence, ...(isBoss ? { hits } : quest?.hits ? { hits: 1 } : {}) };
     const r = quest
       ? act({ type: 'editQuest', questId: quest.id, changes: draft })
       : act({ type: 'createQuest', quest: draft });
@@ -107,6 +109,22 @@ export function QuestComposer({ quest, onClose }: { quest?: Quest; onClose: () =
             ))}
           </div>
         </div>
+
+        {isBoss && (
+          <div className="field">
+            <span className="field__label mono">
+              BOSS HP <span className="dim">· how many sessions it takes to defeat</span>
+            </span>
+            <div className="boss-hp">
+              {Array.from({ length: BOSS_MAX_HITS }, (_, i) => i + 1).map((n) => (
+                <button key={n} type="button" className={`boss-hp__pip ${n <= hits ? 'is-on' : ''}`} onClick={() => setHits(n)} aria-label={`${n} HP`} aria-pressed={n === hits} />
+              ))}
+              <span className="boss-hp__label mono">
+                {hits === 1 ? 'ONE-HIT BOSS' : `${hits} STRIKES · +${BOSS_STRIKE_XP} XP EACH, +${TIER_INFO.boss.xp} ON THE KILL`}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="composer__row">
           <div className="field">
