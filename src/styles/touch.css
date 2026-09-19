@@ -1,0 +1,63 @@
+/* Loaded last on purpose: these rules must win over every component stylesheet. */
+/* ── Touch: every control is at least 44×44 (Apple HIG), without changing the look ── */
+@media (pointer: coarse), (max-width: 860px) {
+  /* Room to grow: a real 44px box, the drawn diamond kept at its desktop size. */
+  .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .socket {
+    width: 44px;
+    height: 44px;
+  }
+  .socket::before { inset: 12px; }
+  .socket:hover::before { inset: 10px; }
+  .socket:active::before { inset: 14px; }
+  /* .btn clips itself (cut corners), which would clip an enlarged hit area too: grow it for real. */
+  .btn,
+  .btn--small {
+    height: 44px;
+  }
+  .campaign__retire,
+  .campaign__retire-confirm button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* iOS Safari zooms the page on focus when an input's text is under 16px. */
+  .field__input:not(.field__input--big) {
+    height: 44px;
+    font-size: 16px;
+  }
+  .interest-tag,
+  .password-row__toggle,
+  .segmented button {
+    min-height: 44px;
+  }
+  .socket__ring {
+    inset: 1px;
+    width: 42px;
+    height: 42px;
+  }
+  /* Wrapped chip rows sit 44px apart so enlarged hit areas never overlap. */
+  .hero__interests {
+    row-gap: 12px;
+  }
+  /* No room to grow: keep the chip, enlarge only the invisible hit area. */
+  .interest-chip,
+  .class-badge,
+  .sync-light {
+    position: relative;
+  }
+  .interest-chip::after,
+  .class-badge::after,
+  .sync-light::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: max(100%, 44px);
+    min-width: 44px;
+    transform: translateY(-50%);
+  }
+}
